@@ -14,16 +14,11 @@ def setup_5_node_cluster():
         "node4": {"ip": "127.0.0.1", "port": "5563"}
     }
 
-    with open('address_book.json', 'w') as f:
-        json.dump(d, f)
-
-    # Create nodes
     nodes = []
-    for name in d.keys():
-        node = RaftNode('address_book.json', name, 'follower')
+    for node_id in d:
+        node = RaftNode(d, node_id)
         node.start()
         nodes.append(node)
-
     return nodes
 
 
