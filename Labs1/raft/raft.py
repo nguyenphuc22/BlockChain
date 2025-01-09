@@ -13,6 +13,7 @@ import random
 import threading
 from queue import Queue, Empty
 
+from storage import KVStorage
 from .interface import Listener, Talker
 from .protocol import MessageType, MessageDirection, RequestVotesResults, \
     AppendEntriesResults, RequestVotesMessage, AppendEntriesMessage, \
@@ -79,7 +80,18 @@ class RaftNode(threading.Thread):
         self.talker = Talker(identity=identity)
         self.talker.start()
 
+        # Initialize storage
+        self.storage = KVStorage(f"raft_node_{name}.db")
+
+        # Initialize commit tracking
+        self.last_committed_index = self.storage.get_last_committed_index()
+        self.commit_index = self.last_committed_index
+
     def stop(self):
+        """
+        Extend stop method to close storage properly
+        """
+        self.storage.close()
         self.talker.stop()
         self.listener.stop()
         self._terminate = True
@@ -109,18 +121,25 @@ class RaftNode(threading.Thread):
         self.client_queue.put(entry)
 
     def check_committed_entry(self, id_num=None):
-        ''' 
-            check_committed_entry: Public function to check the last entry 
-                committed. Optionally specify an id_num to search for. If 
-                specified, will return the most recent entry with this id_num. 
-            Inputs:
-                id_num: returns the most recent entry with this id_num. 
-        '''
-        if (id_num is None):
+        """
+        Public function to check the last entry committed.
+        Now also checks persistent storage.
+        """
+        if id_num is None:
             with self.client_lock:
-                return self.log[self.commit_index]['entry']
+                if self.commit_index < len(self.log):
+                    return self.log[self.commit_index]['entry']
+                return None
+
         with self.client_lock:
-            return self.log_hash.get(id_num, None)
+            # First check in-memory log hash
+            mem_result = self.log_hash.get(id_num, None)
+            if mem_result:
+                return mem_result
+
+            # If not found in memory, check storage
+            stored_entry = self.storage.get_value(str(id_num))
+            return stored_entry
 
     def check_role(self):
         ''' 
@@ -602,22 +621,25 @@ class RaftNode(threading.Thread):
         return prev_index, prev_term
 
     def _commit_entry(self, index, term):
-        '''
-            _commit_entry: Update internal varables to reflect a commit at the 
-                given index and term. Specifically the below variables should 
-                be updated whenever a commmit is made. 
-            Inputs:
-                index: (int) 
-                    Index to commit.
-                term: (int) 
-                    Term corresponding to this commit.
-        '''
+        """
+        Commit an entry at the given index and term.
+        Updates storage and internal state tracking.
+        """
+        # Cập nhật internal state như hiện tại
         self.last_applied_index = index
         self.last_applied_term = term
 
-        # Commit index can be used in parallel by the client to query a log index
+        # Commit index có thể được truy cập song song bởi client
         with self.client_lock:
             self.commit_index = index
+
+        # Lưu entry vào storage
+        if index < len(self.log):
+            entry = self.log[index]
+            self.storage.commit_log(index, term, entry['entry'])
+
+            # Update log hash cho client queries
+            self.log_hash[entry['id']] = entry['entry']
 
     def _broadcast_append_entries(self, entry):
         '''
