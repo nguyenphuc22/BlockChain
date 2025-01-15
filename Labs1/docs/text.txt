@@ -1,1 +1,18 @@
 https://www.youtube.com/watch?v=IafgKJN3nwU
+
+Theo nguyên tắc chung, pBFT có thể chịu đựng tối đa 1/3 tổng số nút bị lỗi  1
+
+Để hiểu rõ hơn, ta có thể xem xét công thức sau:
+
+N = 3f + 1
+
+Trong đó:
+
+N là tổng số nút trong hệ thống.
+f là số lượng nút tối đa có thể bị lỗi.
+Ví dụ:
+
+Nếu hệ thống có 4 nút (N = 4), thì pBFT chỉ có thể chịu đựng được 1 nút bị lỗi (f = 1).
+Nếu hệ thống có 7 nút (N = 7), thì pBFT có thể chịu đựng được 2 nút bị lỗi (f = 2).
+Nếu hệ thống có 10 nút (N = 10), thì pBFT có thể chịu đựng được 3 nút bị lỗi (f = 3).
+Điều này có nghĩa là để đảm bảo hệ thống hoạt động bình thường, số lượng nút không bị lỗi phải luôn lớn hơn 2/3 tổng số nút.
