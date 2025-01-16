@@ -1,19 +1,13 @@
-# node.py
 import random
 import time
 import json
 from threading import Thread, Lock
-import socket
-import pickle
-
-
-class RaftState:
-    FOLLOWER = "follower"
-    CANDIDATE = "candidate"
-    LEADER = "leader"
-
-
+import grpc
+from concurrent import futures
 import logging
+
+import raft_pb2
+import raft_pb2_grpc
 
 # Cấu hình logging
 logging.basicConfig(
@@ -22,9 +16,63 @@ logging.basicConfig(
 )
 
 
+class RaftState:
+    FOLLOWER = "follower"
+    CANDIDATE = "candidate"
+    LEADER = "leader"
+
+
+class RaftServicer(raft_pb2_grpc.RaftServiceServicer):
+    def __init__(self, node):
+        self.node = node
+
+    def RequestVote(self, request, context):
+        with self.node.lock:
+            # Process vote request
+            vote_response = self.node._handle_vote_request({
+                "term": request.term,
+                "candidate_id": request.candidate_id,
+                "last_log_index": request.last_log_index,
+                "last_log_term": request.last_log_term
+            })
+
+            # Return gRPC response
+            return raft_pb2.RequestVoteResponse(
+                term=vote_response["term"],
+                vote_granted=vote_response.get("vote_granted", False)
+            )
+
+    def AppendEntries(self, request, context):
+        with self.node.lock:
+            # Convert entries from protobuf to internal format
+            entries = []
+            for entry in request.entries:
+                entries.append({
+                    "term": entry.term,
+                    "command": entry.data
+                })
+
+            # Process append entries request
+            append_response = self.node._handle_append_entries({
+                "term": request.term,
+                "leader_id": request.leader_id,
+                "prev_log_index": request.prev_log_index,
+                "prev_log_term": request.prev_log_term,
+                "entries": entries,
+                "leader_commit": request.leader_commit
+            })
+
+            # Return gRPC response
+            return raft_pb2.AppendEntriesResponse(
+                term=append_response["term"],
+                success=append_response["success"]
+            )
+
+
 class RaftNode:
     def __init__(self, node_id, config_path):
         self.logger = logging.getLogger(f"Node-{node_id}")
+
         # Node identity
         self.node_id = node_id
         self.state = RaftState.FOLLOWER
@@ -51,19 +99,28 @@ class RaftNode:
         self.last_heartbeat = time.time()
         self.election_timeout = random.uniform(150, 300) / 1000  # 150-300ms
 
-        # Networking
-        self.addr = (self.config[node_id]["host"], self.config[node_id]["port"])
-        self.socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        self.socket.bind(self.addr)
-
         # Threading
         self.running = True
         self.lock = Lock()
 
+        # gRPC server
+        self.server = grpc.server(futures.ThreadPoolExecutor(max_workers=10))
+        raft_pb2_grpc.add_RaftServiceServicer_to_server(RaftServicer(self), self.server)
+
+        # gRPC clients for other nodes
+        self.peers = {}
+        for peer_id, peer_info in self.config.items():
+            if peer_id != self.node_id:
+                channel = grpc.insecure_channel(f"{peer_info['host']}:{peer_info['port']}")
+                self.peers[peer_id] = raft_pb2_grpc.RaftServiceStub(channel)
+
     def start(self):
         """Start the node's threads"""
-        # Start receiver thread
-        Thread(target=self._message_receiver).start()
+        # Start gRPC server
+        server_addr = f"{self.config[self.node_id]['host']}:{self.config[self.node_id]['port']}"
+        self.server.add_insecure_port(server_addr)
+        self.server.start()
+        self.logger.info(f"Started gRPC server on {server_addr}")
 
         # Start main loop thread
         Thread(target=self._main_loop).start()
@@ -71,7 +128,7 @@ class RaftNode:
     def stop(self):
         """Stop the node"""
         self.running = False
-        self.socket.close()
+        self.server.stop(0)
 
     def _main_loop(self):
         """Main loop checking timeouts and sending heartbeats"""
@@ -80,41 +137,19 @@ class RaftNode:
                 current_time = time.time()
 
                 if self.state == RaftState.FOLLOWER:
-                    # Check if we should start election
                     if current_time - self.last_heartbeat > self.election_timeout:
                         self._become_candidate()
 
                 elif self.state == RaftState.CANDIDATE:
-                    # Start election if timeout
                     if current_time - self.last_heartbeat > self.election_timeout:
                         self._start_election()
 
                 elif self.state == RaftState.LEADER:
-                    # Send heartbeats
                     if current_time - self.last_heartbeat > 0.05:  # 50ms
                         self._send_heartbeat()
                         self.last_heartbeat = current_time
 
-            time.sleep(0.01)  # Small sleep to prevent busy waiting
-
-    def _message_receiver(self):
-        """Thread that handles incoming messages"""
-        while self.running:
-            try:
-                data, addr = self.socket.recvfrom(4096)
-                message = pickle.loads(data)
-
-                with self.lock:
-                    if message["type"] == "RequestVote":
-                        self._handle_vote_request(message)
-                    elif message["type"] == "RequestVoteResponse":
-                        self._handle_vote_response(message)
-                    elif message["type"] == "AppendEntries":
-                        self._handle_append_entries(message)
-                    elif message["type"] == "AppendEntriesResponse":
-                        self._handle_append_entries_response(message)
-            except:
-                continue
+            time.sleep(0.01)
 
     def _become_candidate(self):
         """Convert node to candidate and start election"""
@@ -128,40 +163,40 @@ class RaftNode:
     def _start_election(self):
         """Start a new election round"""
         self.last_heartbeat = time.time()
+        last_log_index = len(self.log) - 1
+        last_log_term = self.log[-1]["term"] if self.log else 0
 
-        request = {
-            "type": "RequestVote",
-            "term": self.current_term,
-            "candidate_id": self.node_id,
-            "last_log_index": len(self.log) - 1,
-            "last_log_term": self.log[-1]["term"] if self.log else 0
-        }
-
-        # Send vote requests
-        for node in self.nodes:
-            if node != self.node_id:
-                self._send_message(request, node)
+        for peer_id, stub in self.peers.items():
+            try:
+                request = raft_pb2.RequestVoteRequest(
+                    term=self.current_term,
+                    candidate_id=self.node_id,
+                    last_log_index=last_log_index,
+                    last_log_term=last_log_term
+                )
+                response = stub.RequestVote(request)
+                self._handle_vote_response({
+                    "term": response.term,
+                    "vote_granted": response.vote_granted,
+                    "from": peer_id
+                })
+            except grpc.RpcError as e:
+                self.logger.warning(f"Failed to send vote request to {peer_id}: {e}")
 
     def _handle_vote_request(self, request):
         """Handle incoming vote request"""
-        self.logger.debug(f"Received vote request from {request['candidate_id']} for term {request['term']}")
         response = {
-            "type": "RequestVoteResponse",
             "term": self.current_term,
             "vote_granted": False
         }
 
-        # Check if request term is >= current term
         if request["term"] >= self.current_term:
-            # Update term if needed
             if request["term"] > self.current_term:
                 self.current_term = request["term"]
                 self.voted_for = None
                 self.state = RaftState.FOLLOWER
 
-            # Check if we can vote for candidate
             if (self.voted_for is None or self.voted_for == request["candidate_id"]):
-                # Check if candidate's log is at least as up-to-date
                 last_log_index = len(self.log) - 1
                 last_log_term = self.log[-1]["term"] if self.log else 0
 
@@ -172,7 +207,7 @@ class RaftNode:
                     self.voted_for = request["candidate_id"]
                     self.last_heartbeat = time.time()
 
-        self._send_message(response, request["candidate_id"])
+        return response
 
     def _handle_vote_response(self, response):
         """Handle vote response"""
@@ -187,67 +222,65 @@ class RaftNode:
 
         if response["vote_granted"]:
             self.votes_received.add(response["from"])
-
-            # Check if we have majority
             if len(self.votes_received) > len(self.nodes) / 2:
                 self._become_leader()
 
     def _become_leader(self):
         """Convert node to leader"""
-        self.state = RaftState.LEADER
-        self.logger.info(f"Node became leader for term {self.current_term}")
+        if self.state == RaftState.CANDIDATE:
+            self.state = RaftState.LEADER
+            self.logger.info(f"Node became leader for term {self.current_term}")
 
-        # Initialize leader state
-        for node in self.nodes:
-            self.next_index[node] = len(self.log)
-            self.match_index[node] = -1
+            for node_id in self.nodes:
+                if node_id != self.node_id:
+                    self.next_index[node_id] = len(self.log)
+                    self.match_index[node_id] = -1
 
-        # Send initial heartbeat
-        self._send_heartbeat()
+            self._send_heartbeat()
 
     def _send_heartbeat(self):
         """Send heartbeat to all nodes"""
-        for node in self.nodes:
-            if node != self.node_id:
-                self._send_append_entries(node)
-        self.last_heartbeat = time.time()
+        for peer_id, stub in self.peers.items():
+            prev_index = self.next_index.get(peer_id, len(self.log)) - 1
+            prev_term = self.log[prev_index]["term"] if prev_index >= 0 and self.log else 0
 
-    def _send_append_entries(self, to_node):
-        """Send AppendEntries RPC to node"""
-        next_idx = self.next_index[to_node]
-        prev_log_index = next_idx - 1
-        prev_log_term = self.log[prev_log_index]["term"] if prev_log_index >= 0 else 0
+            try:
+                entries = []
+                if prev_index + 1 < len(self.log):
+                    # Convert log entries to protobuf format
+                    for entry in self.log[prev_index + 1:]:
+                        entries.append(raft_pb2.LogEntry(
+                            term=entry["term"],
+                            data=json.dumps(entry["command"]),
+                            index=prev_index + 1
+                        ))
 
-        request = {
-            "type": "AppendEntries",
-            "term": self.current_term,
-            "leader_id": self.node_id,
-            "prev_log_index": prev_log_index,
-            "prev_log_term": prev_log_term,
-            "entries": self.log[next_idx:],
-            "leader_commit": self.commit_index
-        }
+                request = raft_pb2.AppendEntriesRequest(
+                    term=self.current_term,
+                    leader_id=self.node_id,
+                    prev_log_index=prev_index,
+                    prev_log_term=prev_term,
+                    entries=entries,
+                    leader_commit=self.commit_index
+                )
 
-        self._send_message(request, to_node)
+                response = stub.AppendEntries(request)
+                self._handle_append_entries_response(peer_id, response)
+            except grpc.RpcError as e:
+                self.logger.warning(f"Failed to send heartbeat to {peer_id}: {e}")
 
     def _handle_append_entries(self, request):
         """Handle AppendEntries RPC"""
         response = {
-            "type": "AppendEntriesResponse",
             "term": self.current_term,
-            "success": False,
-            "match_index": -1
+            "success": False
         }
 
-        # Check term
         if request["term"] < self.current_term:
-            self._send_message(response, request["leader_id"])
-            return
+            return response
 
-        # Reset election timeout
         self.last_heartbeat = time.time()
 
-        # Step down if we discover a leader
         if self.state != RaftState.FOLLOWER:
             self.state = RaftState.FOLLOWER
             self.voted_for = None
@@ -259,8 +292,7 @@ class RaftNode:
         if (request["prev_log_index"] >= len(self.log) or
                 (request["prev_log_index"] >= 0 and
                  self.log[request["prev_log_index"]]["term"] != request["prev_log_term"])):
-            self._send_message(response, request["leader_id"])
-            return
+            return response
 
         # Process log entries
         if request["entries"]:
@@ -269,54 +301,43 @@ class RaftNode:
             # Append new entries
             self.log.extend(request["entries"])
             response["success"] = True
-            response["match_index"] = len(self.log) - 1
 
         # Update commit index
         if request["leader_commit"] > self.commit_index:
             self.commit_index = min(request["leader_commit"], len(self.log) - 1)
 
-        self._send_message(response, request["leader_id"])
+        return response
 
-    def _handle_append_entries_response(self, response):
+    def _handle_append_entries_response(self, peer_id, response):
         """Handle AppendEntries response"""
         if self.state != RaftState.LEADER:
             return
 
-        if response["term"] > self.current_term:
-            self.current_term = response["term"]
+        if response.term > self.current_term:
+            self.current_term = response.term
             self.state = RaftState.FOLLOWER
             self.voted_for = None
             return
 
-        if response["success"]:
-            # Update matchIndex and nextIndex
-            self.match_index[response["from"]] = response["match_index"]
-            self.next_index[response["from"]] = response["match_index"] + 1
+        if response.success:
+            self.next_index[peer_id] = len(self.log)
+            self.match_index[peer_id] = len(self.log) - 1
 
             # Check if we can commit any entries
             for n in range(self.commit_index + 1, len(self.log)):
                 if self.log[n]["term"] == self.current_term:
                     # Count replications
                     replicated = 1  # Leader has entry
-                    for node in self.nodes:
-                        if node != self.node_id and self.match_index[node] >= n:
+                    for node_id in self.nodes:
+                        if node_id != self.node_id and self.match_index.get(node_id, -1) >= n:
                             replicated += 1
 
                     # Commit if majority
                     if replicated > len(self.nodes) / 2:
                         self.commit_index = n
-
         else:
             # Decrement nextIndex and retry
-            self.next_index[response["from"]] -= 1
-            if self.next_index[response["from"]] >= 0:
-                self._send_append_entries(response["from"])
-
-    def _send_message(self, message, to_node):
-        """Send message to another node"""
-        message["from"] = self.node_id
-        addr = (self.config[to_node]["host"], self.config[to_node]["port"])
-        self.socket.sendto(pickle.dumps(message), addr)
+            self.next_index[peer_id] = max(0, self.next_index[peer_id] - 1)
 
     def submit_command(self, command):
         """Submit command to the cluster (only if leader)"""
@@ -334,26 +355,3 @@ class RaftNode:
             # Try to replicate immediately
             self._send_heartbeat()
             return True
-
-
-# Example usage:
-def run_test_cluster():
-    """Run a test cluster with 3 nodes"""
-    logging.info("Starting test cluster with 3 nodes...")
-    config = {
-        "node1": {"host": "localhost", "port": 5000},
-        "node2": {"host": "localhost", "port": 5001},
-        "node3": {"host": "localhost", "port": 5002}
-    }
-
-    with open("config.json", "w") as f:
-        json.dump(config, f)
-
-    # Create and start nodes
-    node = RaftNode("node1", "config.json")
-    node.start()
-
-    # Submit some commands if leader
-    time.sleep(5)  # Wait for election
-    if node.state == RaftState.LEADER:
-        node.submit_command({"type": "set", "key": "x", "value": 1})
