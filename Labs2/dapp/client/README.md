@@ -1,70 +1,163 @@
-# Getting Started with Create React App
+# MultiSig Wallet - Hướng dẫn triển khai và sử dụng
 
-This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
+## 1. Cấu trúc dự án
+Dự án bao gồm hai phần chính:
+- Smart Contract MultiSigWallet (Solidity)
+- Frontend (React)
 
-## Available Scripts
+## 2. Triển khai Smart Contract
 
-In the project directory, you can run:
+### 2.1. Deploy Contract
+```solidity
+// Constructor parameters
+_owners = [
+    "0xf9340cf908f039Db5F588b79286dc62D84ba5098",
+    "0xE1B37097C7b93DE17fcFc988f9789e89A6cE836e",
+    "0x394409D8630eC3bDA1A661b01424220Da42cdfaA"
+];
+_required = 2; // Số chữ ký cần thiết
+```
 
-### `npm start`
+### 2.2. Sau khi deploy
+- Lưu lại địa chỉ contract đã deploy
+- Cập nhật `MULTISIG_ADDRESS` trong file `App.js`
+- Cập nhật `MULTISIG_ABI` với ABI của contract
 
-Runs the app in the development mode.\
-Open [http://localhost:3000](http://localhost:3000) to view it in your browser.
+## 3. Cài đặt và chạy Frontend
 
-The page will reload when you make changes.\
-You may also see any lint errors in the console.
+### 3.1. Cài đặt dependencies
+```bash
+npm install
+npm install @tailwindcss/forms
+npm install web3
+```
 
-### `npm test`
+### 3.2. Cấu hình MetaMask
+1. Import các tài khoản owner vào MetaMask
+2. Đảm bảo có đủ ETH trong các tài khoản
+3. Kết nối MetaMask với mạng test phù hợp
 
-Launches the test runner in the interactive watch mode.\
-See the section about [running tests](https://facebook.github.io/create-react-app/docs/running-tests) for more information.
+## 4. Sử dụng MultiSig Wallet
 
-### `npm run build`
+### 4.1. Khởi tạo và Nạp tiền vào Wallet
 
-Builds the app for production to the `build` folder.\
-It correctly bundles React in production mode and optimizes the build for the best performance.
+1. Gửi ETH vào địa chỉ contract:
+    - Từ một tài khoản owner
+    - Gửi đến địa chỉ contract đã deploy (vd: 0xa08f3517Ee859b286bE99ea651724CB8BF04a31C)
+    - Số lượng ETH cần gửi = Số ETH muốn giao dịch + Gas fee
+      Ví dụ:
+        * Nếu muốn gửi giao dịch 0.6 ETH
+        * Nên nạp vào contract khoảng 0.7 ETH (0.6 ETH + 0.1 ETH gas fee)
 
-The build is minified and the filenames include the hashes.\
-Your app is ready to be deployed!
+2. Kiểm tra số dư contract:
+    - Có thể kiểm tra trên Etherscan bằng địa chỉ contract
+    - Hoặc dùng web3.eth.getBalance() để kiểm tra
+    - Đảm bảo số dư luôn cao hơn giá trị giao dịch dự định
 
-See the section about [deployment](https://facebook.github.io/create-react-app/docs/deployment) for more information.
+3. Quản lý số dư:
+    - Nên duy trì một số dư tối thiểu trong contract
+    - Theo dõi số dư trước mỗi giao dịch
+    - Có thể nạp thêm ETH bất cứ lúc nào từ các owner
 
-### `npm run eject`
+### 4.2. Tạo giao dịch mới
+1. Điền form "Submit New Transaction":
+    - To Address: Địa chỉ người nhận
+    - Value (ETH): Số lượng ETH
+    - Data (hex): Nhập "0x" nếu chỉ chuyển ETH
+2. Bấm "Submit Transaction"
+3. Xác nhận trong MetaMask
 
-**Note: this is a one-way operation. Once you `eject`, you can't go back!**
+### 4.3. Phê duyệt giao dịch
+1. Chuyển đổi tài khoản trong MetaMask sang owner khác
+2. Refresh trang web
+3. Tìm giao dich cần approve
+4. Bấm "Approve"
+5. Xác nhận trong MetaMask
 
-If you aren't satisfied with the build tool and configuration choices, you can `eject` at any time. This command will remove the single build dependency from your project.
+### 4.4. Thực thi giao dịch
+1. Sau khi đủ số lượng approval cần thiết
+2. Bấm "Execute"
+3. Trong MetaMask:
+    - Tăng Gas Limit (khoảng 100000)
+    - Xác nhận giao dịch
 
-Instead, it will copy all the configuration files and the transitive dependencies (webpack, Babel, ESLint, etc) right into your project so you have full control over them. All of the commands except `eject` will still work, but they will point to the copied scripts so you can tweak them. At this point you're on your own.
+## 5. Xử lý lỗi thường gặp
 
-You don't have to ever use `eject`. The curated feature set is suitable for small and middle deployments, and you shouldn't feel obligated to use this feature. However we understand that this tool wouldn't be useful if you couldn't customize it when you are ready for it.
+### 5.1. Lỗi approve
+- Đảm bảo đang dùng tài khoản owner
+- Refresh trang sau khi chuyển tài khoản
+- Kiểm tra giao dịch chưa được execute
 
-## Learn More
+### 5.2. Lỗi execute
+- Kiểm tra số dư của contract:
+    * Số dư phải >= Giá trị giao dịch + Gas fee
+    * Ví dụ: Giao dịch 0.6 ETH cần contract có ít nhất 0.7 ETH
+- Đảm bảo đủ số lượng approval (mặc định 2/3 chữ ký)
+- Tăng Gas Limit trong MetaMask (khoảng 100000)
+- Nếu thiếu tiền, nạp thêm ETH vào contract và thử lại
 
-You can learn more in the [Create React App documentation](https://facebook.github.io/create-react-app/docs/getting-started).
+### 5.3. Quản lý số dư contract
+- Lỗi "insufficient funds": Nạp thêm ETH vào contract
+- Công thức tính số ETH cần nạp:
+    * Minimum = Giá trị giao dịch + 0.1 ETH (gas fee)
+    * Recommended = Giá trị giao dịch + 0.2 ETH (dự phòng)
+- Có thể nạp nhiều hơn để thực hiện nhiều giao dịch
 
-To learn React, check out the [React documentation](https://reactjs.org/).
+### 5.3. Lỗi submit transaction
+- Kiểm tra format địa chỉ người nhận
+- Data phải là "0x" nếu chỉ chuyển ETH
+- Value phải là số hợp lệ
 
-### Code Splitting
+## 6. Best Practices
+- Luôn kiểm tra kỹ thông tin trước khi approve/execute
+- Nên có đủ ETH trong contract trước khi tạo giao dịch
+- Refresh trang sau khi chuyển đổi tài khoản
+- Kiểm tra số approval trước khi execute
+- Backup private key của các tài khoản owner
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/code-splitting](https://facebook.github.io/create-react-app/docs/code-splitting)
+## 7. Các tính năng chính
+- Tạo giao dịch mới
+- Phê duyệt giao dịch
+- Hủy phê duyệt
+- Thực thi giao dịch
+- Xem danh sách owners
+- Xem lịch sử giao dịch
 
-### Analyzing the Bundle Size
+--- 
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size](https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size)
+Phần cần làm thêm
 
-### Making a Progressive Web App
+Hãy để tôi giải thích về luồng hoạt động của MultiSig Wallet:
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app](https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app)
+1. Địa chỉ `0xa08f3517Ee859b286bE99ea651724CB8BF04a31C` là địa chỉ của smart contract MultiSig Wallet. Nó hoạt động như một "ví chung" hoặc "két sắt chung" của tất cả owners.
 
-### Advanced Configuration
+2. Quy trình hoạt động:
+```
+[Người gửi] -> [MultiSig Contract] -> [Người nhận]
+   ↑               ↑
+Phải nạp      Giữ tiền tạm thời
+tiền vào      trong contract
+```
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/advanced-configuration](https://facebook.github.io/create-react-app/docs/advanced-configuration)
+3. Tại sao cần như vậy:
+- MultiSig yêu cầu nhiều chữ ký (ví dụ 2/3)
+- Tiền phải được giữ trong contract để đảm bảo chỉ được chuyển khi đủ số chữ ký
+- Nếu chuyển trực tiếp giữa các tài khoản, không có cách nào để thực thi yêu cầu nhiều chữ ký
 
-### Deployment
+4. Ví dụ cụ thể:
+```
+Muốn chuyển 0.6 ETH từ A đến B qua MultiSig:
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/deployment](https://facebook.github.io/create-react-app/docs/deployment)
+1. Nạp tiền vào contract:
+   A -> 0xa08f3517Ee859b286bE99ea651724CB8BF04a31C (0.7 ETH)
 
-### `npm run build` fails to minify
+2. Tạo giao dịch MultiSig:
+   Yêu cầu chuyển 0.6 ETH đến B
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify](https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify)
+3. Owners phê duyệt giao dịch
+
+4. Khi đủ chữ ký, contract tự động chuyển:
+   0xa08f3517...D84ba5098 -> B (0.6 ETH)
+```
+
+Đây giống như một "phòng giao dịch" nơi tiền được giữ an toàn và chỉ được chuyển đi khi đủ số người ký duyệt, thay vì chuyển trực tiếp giữa hai bên.
