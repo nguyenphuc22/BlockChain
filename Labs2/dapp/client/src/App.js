@@ -1,4 +1,10 @@
 import React, { useState, useEffect } from 'react';
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "./components/ui/card";
+import { Button } from "./components/ui/button";
+import { Input } from "./components/ui/input";
+import { Badge } from "./components/ui/badge";
+import { Alert, AlertDescription } from "./components/ui/alert";
+import { Wallet, Send, Users, RefreshCcw, CheckCircle, XCircle } from 'lucide-react';
 import Web3 from 'web3';
 
 const MULTISIG_ABI = [
@@ -347,14 +353,15 @@ const MULTISIG_ABI = [
     "type": "function"
   }
 ];
-const MULTISIG_ADDRESS = '0xa08f3517Ee859b286bE99ea651724CB8BF04a31C'; // Paste deployed contract address here
+const MULTISIG_ADDRESS = '0xa08f3517Ee859b286bE99ea651724CB8BF04a31C';
 
-function App() {
+const App = () => {
   const [web3, setWeb3] = useState(null);
   const [contract, setContract] = useState(null);
   const [account, setAccount] = useState('');
   const [owners, setOwners] = useState([]);
   const [transactions, setTransactions] = useState([]);
+  const [walletBalance, setWalletBalance] = useState('0');
   const [newTx, setNewTx] = useState({
     to: '',
     value: '',
@@ -381,20 +388,34 @@ function App() {
           // Load initial data
           await loadOwners(contractInstance);
           await loadTransactions(contractInstance);
+          await loadWalletBalance(web3Instance);
 
-          window.ethereum.on('accountsChanged', (accounts) => {
-            setAccount(accounts[0]);
-          });
+          window.ethereum.on('accountsChanged', handleAccountChange);
         } catch (error) {
           console.error('Error connecting to MetaMask:', error);
         }
-      } else {
-        console.error('Please install MetaMask!');
       }
     };
 
     initWeb3();
+    return () => {
+      if (window.ethereum) {
+        window.ethereum.removeListener('accountsChanged', handleAccountChange);
+      }
+    };
   }, []);
+
+  const handleAccountChange = async (accounts) => {
+    setAccount(accounts[0]);
+    if (contract) {
+      await loadTransactions(contract);
+    }
+  };
+
+  const loadWalletBalance = async (web3Instance) => {
+    const balance = await web3Instance.eth.getBalance(MULTISIG_ADDRESS);
+    setWalletBalance(web3Instance.utils.fromWei(balance, 'ether'));
+  };
 
   const loadOwners = async (contractInstance) => {
     const ownersList = await contractInstance.methods.getOwners().call();
@@ -404,13 +425,12 @@ function App() {
   const loadTransactions = async (contractInstance) => {
     const count = await contractInstance.methods.getTransactionCount().call();
     const txs = [];
-
     for (let i = 0; i < count; i++) {
       const tx = await contractInstance.methods.getTransaction(i).call();
       txs.push({ id: i, ...tx });
     }
-
     setTransactions(txs);
+    await loadWalletBalance(web3);
   };
 
   const handleSubmitTransaction = async (e) => {
@@ -420,7 +440,6 @@ function App() {
         await contract.methods
             .submit(newTx.to, web3.utils.toWei(newTx.value, 'ether'), newTx.data)
             .send({ from: account });
-
         await loadTransactions(contract);
         setNewTx({ to: '', value: '', data: '' });
       } catch (error) {
@@ -463,97 +482,162 @@ function App() {
   };
 
   return (
-      <div className="container mx-auto p-4">
-        <h1 className="text-3xl font-bold mb-6">MultiSig Wallet</h1>
-
-        <div className="mb-8">
-          <h2 className="text-xl font-semibold mb-4">Account: {account}</h2>
-          <h3 className="text-lg mb-2">Owners:</h3>
-          <ul className="list-disc pl-6">
-            {owners.map((owner, index) => (
-                <li key={index}>{owner}</li>
-            ))}
-          </ul>
-        </div>
-
-        <div className="mb-8">
-          <h2 className="text-xl font-semibold mb-4">Submit New Transaction</h2>
-          <form onSubmit={handleSubmitTransaction} className="space-y-4">
-            <div>
-              <input
-                  type="text"
-                  value={newTx.to}
-                  onChange={(e) => setNewTx({ ...newTx, to: e.target.value })}
-                  placeholder="To Address"
-                  className="w-full p-2 border rounded"
-              />
-            </div>
-            <div>
-              <input
-                  type="text"
-                  value={newTx.value}
-                  onChange={(e) => setNewTx({ ...newTx, value: e.target.value })}
-                  placeholder="Value (ETH)"
-                  className="w-full p-2 border rounded"
-              />
-            </div>
-            <div>
-              <input
-                  type="text"
-                  value={newTx.data}
-                  onChange={(e) => setNewTx({ ...newTx, data: e.target.value })}
-                  placeholder="Data (hex)"
-                  className="w-full p-2 border rounded"
-              />
-            </div>
-            <button
-                type="submit"
-                className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600"
-            >
-              Submit Transaction
-            </button>
-          </form>
-        </div>
-
-        <div>
-          <h2 className="text-xl font-semibold mb-4">Transactions</h2>
-          <div className="space-y-4">
-            {transactions.map((tx) => (
-                <div key={tx.id} className="border p-4 rounded">
-                  <p>ID: {tx.id}</p>
-                  <p>To: {tx.to}</p>
-                  <p>Value: {web3?.utils.fromWei(tx.value, 'ether')} ETH</p>
-                  <p>Approvals: {tx.numApprovals}</p>
-                  <p>Executed: {tx.executed ? 'Yes' : 'No'}</p>
-
-                  {!tx.executed && (
-                      <div className="mt-2 space-x-2">
-                        <button
-                            onClick={() => handleApprove(tx.id)}
-                            className="bg-green-500 text-white px-3 py-1 rounded hover:bg-green-600"
-                        >
-                          Approve
-                        </button>
-                        <button
-                            onClick={() => handleExecute(tx.id)}
-                            className="bg-blue-500 text-white px-3 py-1 rounded hover:bg-blue-600"
-                        >
-                          Execute
-                        </button>
-                        <button
-                            onClick={() => handleRevoke(tx.id)}
-                            className="bg-red-500 text-white px-3 py-1 rounded hover:bg-red-600"
-                        >
-                          Revoke
-                        </button>
-                      </div>
-                  )}
+      <div className="min-h-screen bg-gray-100 p-4">
+        <div className="max-w-7xl mx-auto space-y-6">
+          {/* Header Section */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Wallet className="h-6 w-6" />
+                MultiSig Wallet Dashboard
+              </CardTitle>
+              <CardDescription>
+                Current Account: {account}
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="bg-blue-50 p-4 rounded-lg">
+                  <h3 className="text-sm font-medium text-blue-600">Wallet Balance</h3>
+                  <p className="text-2xl font-bold">{walletBalance} ETH</p>
                 </div>
-            ))}
-          </div>
+                <div className="bg-green-50 p-4 rounded-lg">
+                  <h3 className="text-sm font-medium text-green-600">Total Transactions</h3>
+                  <p className="text-2xl font-bold">{transactions.length}</p>
+                </div>
+                <div className="bg-purple-50 p-4 rounded-lg">
+                  <h3 className="text-sm font-medium text-purple-600">Required Signatures</h3>
+                  <p className="text-2xl font-bold">2/3</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Owners Section */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Users className="h-6 w-6" />
+                Wallet Owners
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="flex flex-wrap gap-2">
+                {owners.map((owner, index) => (
+                    <Badge key={index} variant={owner === account ? "default" : "secondary"}>
+                      {owner.slice(0, 6)}...{owner.slice(-4)}
+                    </Badge>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* New Transaction Section */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Send className="h-6 w-6" />
+                Submit New Transaction
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <form onSubmit={handleSubmitTransaction} className="space-y-4">
+                <div className="space-y-2">
+                  <Input
+                      type="text"
+                      value={newTx.to}
+                      onChange={(e) => setNewTx({ ...newTx, to: e.target.value })}
+                      placeholder="To Address"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Input
+                      type="text"
+                      value={newTx.value}
+                      onChange={(e) => setNewTx({ ...newTx, value: e.target.value })}
+                      placeholder="Value (ETH)"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Input
+                      type="text"
+                      value={newTx.data}
+                      onChange={(e) => setNewTx({ ...newTx, data: e.target.value })}
+                      placeholder="Data (hex)"
+                  />
+                </div>
+                <Button type="submit" className="w-full">
+                  Submit Transaction
+                </Button>
+              </form>
+            </CardContent>
+          </Card>
+
+          {/* Transactions List */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <RefreshCcw className="h-6 w-6" />
+                Transaction History
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                {transactions.map((tx) => (
+                    <Card key={tx.id} className="bg-gray-50">
+                      <CardHeader className="p-4">
+                        <div className="flex items-center justify-between">
+                          <CardTitle className="text-lg">Transaction #{tx.id}</CardTitle>
+                          {tx.executed ? (
+                              <Badge variant="success" className="flex items-center gap-1">
+                                <CheckCircle className="h-4 w-4" />
+                                Executed
+                              </Badge>
+                          ) : (
+                              <Badge variant="secondary" className="flex items-center gap-1">
+                                <XCircle className="h-4 w-4" />
+                                Pending
+                              </Badge>
+                          )}
+                        </div>
+                      </CardHeader>
+                      <CardContent className="p-4 pt-0">
+                        <div className="grid grid-cols-2 gap-4">
+                          <div>
+                            <p className="text-sm text-gray-500">To Address</p>
+                            <p className="font-mono">{tx.to}</p>
+                          </div>
+                          <div>
+                            <p className="text-sm text-gray-500">Value</p>
+                            <p className="font-mono">{web3?.utils.fromWei(tx.value, 'ether')} ETH</p>
+                          </div>
+                        </div>
+                        <div className="mt-4">
+                          <p className="text-sm text-gray-500">Approvals</p>
+                          <p className="font-mono">{tx.numApprovals} signatures</p>
+                        </div>
+                      </CardContent>
+                      {!tx.executed && (
+                          <CardFooter className="p-4 flex gap-2">
+                            <Button onClick={() => handleApprove(tx.id)} variant="outline">
+                              Approve
+                            </Button>
+                            <Button onClick={() => handleExecute(tx.id)} variant="default">
+                              Execute
+                            </Button>
+                            <Button onClick={() => handleRevoke(tx.id)} variant="destructive">
+                              Revoke
+                            </Button>
+                          </CardFooter>
+                      )}
+                    </Card>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
         </div>
       </div>
   );
-}
+};
 
 export default App;
