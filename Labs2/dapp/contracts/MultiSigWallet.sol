@@ -2,13 +2,21 @@
 pragma solidity ^0.8.0;
 
 contract MultiSigWallet {
+    // Events
     event Deposit(address indexed sender, uint amount);
     event Submit(uint indexed txId);
     event Approve(address indexed owner, uint indexed txId);
     event Revoke(address indexed owner, uint indexed txId);
     event Execute(uint indexed txId);
     event ThresholdUpdated(uint newThreshold);
+    event DeadlineExtended(uint indexed txId, uint newDeadline);
+    event TransactionCancelled(uint indexed txId);
+    event ContractPaused(address indexed admin);
+    event ContractUnpaused(address indexed admin);
+    event NewOwnerAdded(address indexed newOwner);
+    event OwnerRemoved(address indexed owner);
 
+    // Structs
     struct Transaction {
         address to;
         uint value;
@@ -16,18 +24,28 @@ contract MultiSigWallet {
         bool executed;
         uint numApprovals;
         uint deadline;
+        bool cancelled;
     }
 
+    // State Variables
     address[] public owners;
     mapping(address => bool) public isOwner;
     uint public required;
     uint public threshold; // Threshold amount that requires multi-sig
+    bool public isPaused;
+    mapping(uint => uint) public originalDeadlines;
 
     Transaction[] public transactions;
     mapping(uint => mapping(address => bool)) public approved;
 
+    // Modifiers
     modifier onlyOwner() {
         require(isOwner[msg.sender], "not owner");
+        _;
+    }
+
+    modifier onlyAdmin() {
+        require(msg.sender == owners[0], "only admin");
         _;
     }
 
@@ -46,18 +64,32 @@ contract MultiSigWallet {
         _;
     }
 
+    modifier notCancelled(uint _txId) {
+        require(!transactions[_txId].cancelled, "tx is cancelled");
+        _;
+    }
+
     modifier validDeadline(uint _txId) {
         require(block.timestamp <= transactions[_txId].deadline, "transaction expired");
         _;
     }
 
+    modifier notPaused() {
+        require(!isPaused, "contract is paused");
+        _;
+    }
+
+    // Constructor
     constructor(
         address[] memory _owners,
         uint _required,
-        uint _threshold // Amount in wei that requires multi-sig
+        uint _threshold
     ) {
         require(_owners.length > 0, "owners required");
-        require(_required > 0 && _required <= _owners.length, "invalid required number of owners");
+        require(
+            _required > 0 && _required <= _owners.length,
+            "invalid required number of owners"
+        );
         require(_threshold > 0, "threshold must be greater than 0");
 
         for (uint i = 0; i < _owners.length; i++) {
@@ -73,13 +105,16 @@ contract MultiSigWallet {
         threshold = _threshold;
     }
 
+    // Receive function
     receive() external payable {
         emit Deposit(msg.sender, msg.value);
     }
 
+    // Core Functions
     function submit(address _to, uint _value, bytes calldata _data, uint _deadline)
     external
     onlyOwner
+    notPaused
     {
         require(_deadline > block.timestamp, "deadline must be in future");
 
@@ -88,9 +123,13 @@ contract MultiSigWallet {
             value: _value,
             data: _data,
             executed: false,
-            numApprovals: _value < threshold ? required : 1, // If below threshold, auto-approve
-            deadline: _deadline
+            numApprovals: _value < threshold ? 1 : 0, // Auto-approve if below threshold
+            deadline: _deadline,
+            cancelled: false
         }));
+
+        // Store original deadline for reference
+        originalDeadlines[transactions.length - 1] = _deadline;
 
         // Auto-approve for the submitter if value is below threshold
         if (_value < threshold) {
@@ -106,7 +145,9 @@ contract MultiSigWallet {
     txExists(_txId)
     notApproved(_txId)
     notExecuted(_txId)
+    notCancelled(_txId)
     validDeadline(_txId)
+    notPaused
     {
         Transaction storage transaction = transactions[_txId];
         // Only allow approvals for transactions above threshold
@@ -122,11 +163,16 @@ contract MultiSigWallet {
     external
     txExists(_txId)
     notExecuted(_txId)
+    notCancelled(_txId)
     validDeadline(_txId)
+    notPaused
     {
         Transaction storage transaction = transactions[_txId];
         uint requiredApprovals = transaction.value >= threshold ? required : 1;
-        require(transaction.numApprovals >= requiredApprovals, "approvals < required");
+        require(
+            transaction.numApprovals >= requiredApprovals,
+            "approvals < required"
+        );
 
         transaction.executed = true;
 
@@ -143,9 +189,9 @@ contract MultiSigWallet {
     onlyOwner
     txExists(_txId)
     notExecuted(_txId)
+    notCancelled(_txId)
     {
         Transaction storage transaction = transactions[_txId];
-        // Only allow revokes for transactions above threshold
         require(transaction.value >= threshold, "revoke not allowed for small amounts");
         require(approved[_txId][msg.sender], "tx not approved");
 
@@ -155,13 +201,77 @@ contract MultiSigWallet {
         emit Revoke(msg.sender, _txId);
     }
 
-    function updateThreshold(uint _newThreshold) external {
-        require(msg.sender == owners[0], "only admin can update threshold"); // Assuming first owner is admin
+    // Admin Functions
+    function updateThreshold(uint _newThreshold) external onlyAdmin {
         require(_newThreshold > 0, "threshold must be greater than 0");
         threshold = _newThreshold;
         emit ThresholdUpdated(_newThreshold);
     }
 
+    function addOwner(address _newOwner) external onlyAdmin {
+        require(_newOwner != address(0), "invalid owner");
+        require(!isOwner[_newOwner], "already owner");
+
+        isOwner[_newOwner] = true;
+        owners.push(_newOwner);
+
+        emit NewOwnerAdded(_newOwner);
+    }
+
+    function removeOwner(address _owner) external onlyAdmin {
+        require(_owner != owners[0], "cannot remove admin");
+        require(isOwner[_owner], "not owner");
+        require(owners.length - 1 >= required, "cannot have less owners than required");
+
+        isOwner[_owner] = false;
+
+        for (uint i = 1; i < owners.length; i++) {
+            if (owners[i] == _owner) {
+                owners[i] = owners[owners.length - 1];
+                owners.pop();
+                break;
+            }
+        }
+
+        emit OwnerRemoved(_owner);
+    }
+
+    // Emergency Functions
+    function pauseContract() external onlyAdmin {
+        isPaused = true;
+        emit ContractPaused(msg.sender);
+    }
+
+    function unpauseContract() external onlyAdmin {
+        isPaused = false;
+        emit ContractUnpaused(msg.sender);
+    }
+
+    function extendDeadline(uint _txId, uint _newDeadline)
+    external
+    onlyAdmin
+    txExists(_txId)
+    notExecuted(_txId)
+    notCancelled(_txId)
+    {
+        require(_newDeadline > block.timestamp, "new deadline must be in future");
+        require(_newDeadline > transactions[_txId].deadline, "can only extend deadline");
+
+        transactions[_txId].deadline = _newDeadline;
+        emit DeadlineExtended(_txId, _newDeadline);
+    }
+
+    function cancelTransaction(uint _txId)
+    external
+    onlyAdmin
+    txExists(_txId)
+    notExecuted(_txId)
+    {
+        transactions[_txId].cancelled = true;
+        emit TransactionCancelled(_txId);
+    }
+
+    // View Functions
     function getOwners() external view returns (address[] memory) {
         return owners;
     }
@@ -179,7 +289,8 @@ contract MultiSigWallet {
         bytes memory data,
         bool executed,
         uint numApprovals,
-        uint deadline
+        uint deadline,
+        bool cancelled
     )
     {
         Transaction storage transaction = transactions[_txId];
@@ -189,11 +300,16 @@ contract MultiSigWallet {
             transaction.data,
             transaction.executed,
             transaction.numApprovals,
-            transaction.deadline
+            transaction.deadline,
+            transaction.cancelled
         );
     }
 
     function getThreshold() external view returns (uint) {
         return threshold;
+    }
+
+    function isTransactionExpired(uint _txId) external view returns (bool) {
+        return block.timestamp > transactions[_txId].deadline;
     }
 }

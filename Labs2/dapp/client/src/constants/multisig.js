@@ -2,12 +2,38 @@ export const MULTISIG_ABI = [
     {
         "inputs": [
             {
+                "internalType": "address",
+                "name": "_newOwner",
+                "type": "address"
+            }
+        ],
+        "name": "addOwner",
+        "outputs": [],
+        "stateMutability": "nonpayable",
+        "type": "function"
+    },
+    {
+        "inputs": [
+            {
                 "internalType": "uint256",
                 "name": "_txId",
                 "type": "uint256"
             }
         ],
         "name": "approve",
+        "outputs": [],
+        "stateMutability": "nonpayable",
+        "type": "function"
+    },
+    {
+        "inputs": [
+            {
+                "internalType": "uint256",
+                "name": "_txId",
+                "type": "uint256"
+            }
+        ],
+        "name": "cancelTransaction",
         "outputs": [],
         "stateMutability": "nonpayable",
         "type": "function"
@@ -58,6 +84,51 @@ export const MULTISIG_ABI = [
             {
                 "indexed": true,
                 "internalType": "address",
+                "name": "admin",
+                "type": "address"
+            }
+        ],
+        "name": "ContractPaused",
+        "type": "event"
+    },
+    {
+        "anonymous": false,
+        "inputs": [
+            {
+                "indexed": true,
+                "internalType": "address",
+                "name": "admin",
+                "type": "address"
+            }
+        ],
+        "name": "ContractUnpaused",
+        "type": "event"
+    },
+    {
+        "anonymous": false,
+        "inputs": [
+            {
+                "indexed": true,
+                "internalType": "uint256",
+                "name": "txId",
+                "type": "uint256"
+            },
+            {
+                "indexed": false,
+                "internalType": "uint256",
+                "name": "newDeadline",
+                "type": "uint256"
+            }
+        ],
+        "name": "DeadlineExtended",
+        "type": "event"
+    },
+    {
+        "anonymous": false,
+        "inputs": [
+            {
+                "indexed": true,
+                "internalType": "address",
                 "name": "sender",
                 "type": "address"
             },
@@ -96,6 +167,70 @@ export const MULTISIG_ABI = [
         ],
         "name": "Execute",
         "type": "event"
+    },
+    {
+        "inputs": [
+            {
+                "internalType": "uint256",
+                "name": "_txId",
+                "type": "uint256"
+            },
+            {
+                "internalType": "uint256",
+                "name": "_newDeadline",
+                "type": "uint256"
+            }
+        ],
+        "name": "extendDeadline",
+        "outputs": [],
+        "stateMutability": "nonpayable",
+        "type": "function"
+    },
+    {
+        "anonymous": false,
+        "inputs": [
+            {
+                "indexed": true,
+                "internalType": "address",
+                "name": "newOwner",
+                "type": "address"
+            }
+        ],
+        "name": "NewOwnerAdded",
+        "type": "event"
+    },
+    {
+        "anonymous": false,
+        "inputs": [
+            {
+                "indexed": true,
+                "internalType": "address",
+                "name": "owner",
+                "type": "address"
+            }
+        ],
+        "name": "OwnerRemoved",
+        "type": "event"
+    },
+    {
+        "inputs": [],
+        "name": "pauseContract",
+        "outputs": [],
+        "stateMutability": "nonpayable",
+        "type": "function"
+    },
+    {
+        "inputs": [
+            {
+                "internalType": "address",
+                "name": "_owner",
+                "type": "address"
+            }
+        ],
+        "name": "removeOwner",
+        "outputs": [],
+        "stateMutability": "nonpayable",
+        "type": "function"
     },
     {
         "inputs": [
@@ -182,6 +317,26 @@ export const MULTISIG_ABI = [
         ],
         "name": "ThresholdUpdated",
         "type": "event"
+    },
+    {
+        "anonymous": false,
+        "inputs": [
+            {
+                "indexed": true,
+                "internalType": "uint256",
+                "name": "txId",
+                "type": "uint256"
+            }
+        ],
+        "name": "TransactionCancelled",
+        "type": "event"
+    },
+    {
+        "inputs": [],
+        "name": "unpauseContract",
+        "outputs": [],
+        "stateMutability": "nonpayable",
+        "type": "function"
     },
     {
         "inputs": [
@@ -289,6 +444,11 @@ export const MULTISIG_ABI = [
                 "internalType": "uint256",
                 "name": "deadline",
                 "type": "uint256"
+            },
+            {
+                "internalType": "bool",
+                "name": "cancelled",
+                "type": "bool"
             }
         ],
         "stateMutability": "view",
@@ -321,6 +481,57 @@ export const MULTISIG_ABI = [
                 "internalType": "bool",
                 "name": "",
                 "type": "bool"
+            }
+        ],
+        "stateMutability": "view",
+        "type": "function"
+    },
+    {
+        "inputs": [],
+        "name": "isPaused",
+        "outputs": [
+            {
+                "internalType": "bool",
+                "name": "",
+                "type": "bool"
+            }
+        ],
+        "stateMutability": "view",
+        "type": "function"
+    },
+    {
+        "inputs": [
+            {
+                "internalType": "uint256",
+                "name": "_txId",
+                "type": "uint256"
+            }
+        ],
+        "name": "isTransactionExpired",
+        "outputs": [
+            {
+                "internalType": "bool",
+                "name": "",
+                "type": "bool"
+            }
+        ],
+        "stateMutability": "view",
+        "type": "function"
+    },
+    {
+        "inputs": [
+            {
+                "internalType": "uint256",
+                "name": "",
+                "type": "uint256"
+            }
+        ],
+        "name": "originalDeadlines",
+        "outputs": [
+            {
+                "internalType": "uint256",
+                "name": "",
+                "type": "uint256"
             }
         ],
         "stateMutability": "view",
@@ -410,10 +621,15 @@ export const MULTISIG_ABI = [
                 "internalType": "uint256",
                 "name": "deadline",
                 "type": "uint256"
+            },
+            {
+                "internalType": "bool",
+                "name": "cancelled",
+                "type": "bool"
             }
         ],
         "stateMutability": "view",
         "type": "function"
     }
 ];
-export const MULTISIG_ADDRESS = '0x35B10A7533B3ad58bdec0bcB41B77D2AE1D33244';
+export const MULTISIG_ADDRESS = '0xdC55645194a4C3f379b01DC4cC8859C908d98a48';
