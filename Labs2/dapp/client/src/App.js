@@ -4,7 +4,7 @@ import { Button } from "./components/ui/button";
 import { Input } from "./components/ui/input";
 import { Badge } from "./components/ui/badge";
 import { Alert, AlertDescription } from "./components/ui/alert";
-import { Wallet, Send, Users, RefreshCcw, CheckCircle, XCircle, Clock } from 'lucide-react';
+import { Wallet, Send, Users, RefreshCcw, CheckCircle, XCircle, Clock, Settings } from 'lucide-react';
 import Web3 from 'web3';
 import { MULTISIG_ABI, MULTISIG_ADDRESS } from './constants/multisig';
 
@@ -17,6 +17,10 @@ const App = () => {
   const [owners, setOwners] = useState([]);
   const [transactions, setTransactions] = useState([]);
   const [walletBalance, setWalletBalance] = useState('0');
+  const [required, setRequired] = useState(0);
+  const [threshold, setThreshold] = useState('0');
+  const [newThreshold, setNewThreshold] = useState('');
+  const [isAdmin, setIsAdmin] = useState(false);
   const [newTx, setNewTx] = useState({
     to: '',
     value: '',
@@ -42,7 +46,19 @@ const App = () => {
           );
           setContract(contractInstance);
 
-          // Load initial data
+          // Load threshold
+          const currentThreshold = await contractInstance.methods.getThreshold().call();
+          setThreshold(web3Instance.utils.fromWei(currentThreshold, 'ether'));
+
+          // Load required signatures
+          const requiredSignatures = await contractInstance.methods.required().call();
+          setRequired(Number(requiredSignatures));
+
+          // Check if current user is admin
+          const owners = await contractInstance.methods.getOwners().call();
+          setIsAdmin(accounts[0].toLowerCase() === owners[0].toLowerCase());
+
+          // Load other data
           await loadOwners(contractInstance);
           await loadTransactions(contractInstance);
           await loadWalletBalance(web3Instance);
@@ -50,7 +66,10 @@ const App = () => {
           window.ethereum.on('accountsChanged', handleAccountChange);
         } catch (error) {
           console.error('Error connecting to MetaMask:', error);
+          setError('Failed to connect to MetaMask');
         }
+      } else {
+        setError('Please install MetaMask');
       }
     };
 
@@ -61,6 +80,23 @@ const App = () => {
       }
     };
   }, []);
+
+  const handleUpdateThreshold = async (e) => {
+    e.preventDefault();
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      const thresholdWei = web3.utils.toWei(newThreshold, 'ether');
+      await contract.methods.updateThreshold(thresholdWei).send({ from: account });
+      setThreshold(newThreshold);
+      setNewThreshold('');
+    } catch (error) {
+      setError(error.message);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -181,90 +217,157 @@ const App = () => {
   const TransactionCard = ({ tx }) => {
     const now = Math.floor(Date.now() / 1000);
     const isExpired = tx.deadline && tx.deadline < now;
-    const canInteract = !tx.executed && !isExpired;
+    const isSmallAmount = web3.utils.fromWei(tx.value, 'ether') < threshold;
+    const canInteract = !tx.executed && !isExpired && !isSmallAmount;
 
     // Format time remaining
     const formatTimeRemaining = () => {
       if (!tx.deadline) return "No deadline";
       const timeLeft = tx.deadline - now;
       if (timeLeft <= 0) return "Expired";
-
       const minutes = Math.floor(timeLeft / 60);
       const seconds = timeLeft % 60;
       return `${minutes}m ${seconds}s`;
     };
 
+    const getStatusBadge = () => {
+      if (tx.executed) {
+        return (
+            <Badge variant="success" className="flex items-center gap-1">
+              <CheckCircle className="h-4 w-4" />
+              Executed
+            </Badge>
+        );
+      } else if (isExpired) {
+        return (
+            <Badge variant="destructive" className="flex items-center gap-1">
+              <XCircle className="h-4 w-4" />
+              Expired
+            </Badge>
+        );
+      } else if (isSmallAmount) {
+        return (
+            <Badge variant="secondary" className="flex items-center gap-1">
+              <RefreshCcw className="h-4 w-4" />
+              Auto-approved
+            </Badge>
+        );
+      } else {
+        return (
+            <Badge variant="default" className="flex items-center gap-1">
+              <Clock className="h-4 w-4" />
+              {formatTimeRemaining()}
+            </Badge>
+        );
+      }
+    };
+
     return (
-        <Card key={tx.id} className="bg-gray-50">
+        <Card className="bg-gray-50 hover:bg-gray-100 transition-colors">
           <CardHeader className="p-4">
             <div className="flex items-center justify-between">
-              <CardTitle className="text-lg">Transaction #{tx.id}</CardTitle>
-              <div className="flex gap-2">
-                {tx.executed ? (
-                    <Badge variant="success" className="flex items-center gap-1">
-                      <CheckCircle className="h-4 w-4" />
-                      Executed
-                    </Badge>
-                ) : isExpired ? (
-                    <Badge variant="destructive" className="flex items-center gap-1">
-                      <XCircle className="h-4 w-4" />
-                      Expired
-                    </Badge>
-                ) : (
-                    <Badge variant="secondary" className="flex items-center gap-1">
-                      <Clock className="h-4 w-4" />
-                      {formatTimeRemaining()}
-                    </Badge>
-                )}
+              <div className="flex items-center gap-2">
+                <CardTitle className="text-lg">Transaction #{tx.id}</CardTitle>
+                {getStatusBadge()}
+              </div>
+              <div className="flex items-center gap-2">
+                <Badge variant={tx.numApprovals >= required ? "success" : "secondary"}>
+                  {tx.numApprovals}/{required} Signatures
+                </Badge>
               </div>
             </div>
           </CardHeader>
+
           <CardContent className="p-4 pt-0">
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <p className="text-sm text-gray-500">To Address</p>
+                <p className="text-sm font-medium text-gray-500">Recipient Address</p>
                 <p className="font-mono text-sm truncate">{tx.to}</p>
               </div>
               <div>
-                <p className="text-sm text-gray-500">Value</p>
-                <p className="font-mono">{web3?.utils.fromWei(tx.value, 'ether')} ETH</p>
-              </div>
-            </div>
-            <div className="mt-4 grid grid-cols-2 gap-4">
-              <div>
-                <p className="text-sm text-gray-500">Approvals Status</p>
+                <p className="text-sm font-medium text-gray-500">Value</p>
                 <div className="flex items-center gap-2">
-                  <p className="font-mono">{tx.numApprovals} / 2 signatures</p>
-                  <Badge variant={tx.numApprovals >= 2 ? "success" : "secondary"}>
-                    {tx.numApprovals >= 2 ? "Ready" : "Pending"}
-                  </Badge>
+                  <p className="font-mono">{web3.utils.fromWei(tx.value, 'ether')} ETH</p>
+                  {isSmallAmount && (
+                      <Badge variant="outline" className="text-xs">
+                        Below Threshold
+                      </Badge>
+                  )}
                 </div>
               </div>
+
+              <div>
+                <p className="text-sm font-medium text-gray-500">Status</p>
+                <p className="text-sm">
+                  {isSmallAmount ? (
+                      "Small transaction - No approvals needed"
+                  ) : (
+                      `Requires ${required} approvals`
+                  )}
+                </p>
+              </div>
+
+              <div>
+                <p className="text-sm font-medium text-gray-500">Deadline</p>
+                <p className="text-sm">{formatTimeRemaining()}</p>
+              </div>
+
+              {tx.data && tx.data !== '0x' && (
+                  <div className="col-span-2">
+                    <p className="text-sm font-medium text-gray-500">Transaction Data</p>
+                    <p className="font-mono text-sm break-all">{tx.data}</p>
+                  </div>
+              )}
             </div>
           </CardContent>
+
           {canInteract && (
-              <CardFooter className="p-4 flex gap-2">
+              <CardFooter className="p-4 flex flex-wrap gap-2">
                 <Button
                     onClick={() => handleApprove(tx.id)}
                     variant="outline"
-                    disabled={isLoading}
+                    disabled={isLoading || isSmallAmount}
+                    className="flex items-center gap-2"
                 >
+                  <CheckCircle className="h-4 w-4" />
                   {isLoading ? 'Approving...' : 'Approve'}
                 </Button>
+
                 <Button
                     onClick={() => handleExecute(tx.id)}
                     variant="default"
-                    disabled={isLoading || tx.numApprovals < 2}
+                    disabled={isLoading || (tx.numApprovals < required && !isSmallAmount)}
+                    className="flex items-center gap-2"
                 >
+                  <Send className="h-4 w-4" />
                   {isLoading ? 'Executing...' : 'Execute'}
                 </Button>
+
                 <Button
                     onClick={() => handleRevoke(tx.id)}
                     variant="destructive"
-                    disabled={isLoading}
+                    disabled={isLoading || isSmallAmount}
+                    className="flex items-center gap-2"
                 >
+                  <XCircle className="h-4 w-4" />
                   {isLoading ? 'Revoking...' : 'Revoke'}
                 </Button>
+              </CardFooter>
+          )}
+
+          {!canInteract && tx.executed && (
+              <CardFooter className="p-4">
+                <p className="text-sm text-gray-500">
+                  Transaction has been executed successfully
+                </p>
+              </CardFooter>
+          )}
+
+          {!canInteract && isExpired && !tx.executed && (
+              <CardFooter className="p-4">
+                <p className="text-sm text-gray-500">
+                  Transaction has expired and cannot be executed
+                </p>
               </CardFooter>
           )}
         </Card>
@@ -304,7 +407,7 @@ const App = () => {
                 </div>
                 <div className="bg-purple-50 p-4 rounded-lg">
                   <h3 className="text-sm font-medium text-purple-600">Required Signatures</h3>
-                  <p className="text-2xl font-bold">2/3</p>
+                  <p className="text-2xl font-bold">{required}/{owners.length}</p>
                 </div>
               </div>
             </CardContent>
@@ -330,6 +433,36 @@ const App = () => {
                 ))}
               </div>
             </CardContent>
+          </Card>
+
+          {/* Threshold Settings Card */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Settings className="h-6 w-6" />
+                Threshold Settings
+              </CardTitle>
+              <CardDescription>
+                Transactions below {threshold} ETH are automatically approved
+              </CardDescription>
+            </CardHeader>
+            {isAdmin && (
+                <CardContent>
+                  <form onSubmit={handleUpdateThreshold} className="flex gap-4">
+                    <Input
+                        type="number"
+                        step="0.000000000000000001"
+                        value={newThreshold}
+                        onChange={(e) => setNewThreshold(e.target.value)}
+                        placeholder="New threshold (ETH)"
+                        disabled={isLoading}
+                    />
+                    <Button type="submit" disabled={isLoading}>
+                      Update Threshold
+                    </Button>
+                  </form>
+                </CardContent>
+            )}
           </Card>
 
           {/* New Transaction Section */}
@@ -397,7 +530,17 @@ const App = () => {
                     </div>
                 ) : (
                     transactions.map((tx) => (
-                        <TransactionCard key={tx.id} tx={tx} />
+                        <TransactionCard
+                            key={tx.id}
+                            tx={tx}
+                            required={required}
+                            web3={web3}
+                            threshold={threshold}
+                            isLoading={isLoading}
+                            handleApprove={handleApprove}
+                            handleExecute={handleExecute}
+                            handleRevoke={handleRevoke}
+                        />
                     ))
                 )}
               </div>

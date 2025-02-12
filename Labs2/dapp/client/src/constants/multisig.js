@@ -23,6 +23,11 @@ export const MULTISIG_ABI = [
                 "internalType": "uint256",
                 "name": "_required",
                 "type": "uint256"
+            },
+            {
+                "internalType": "uint256",
+                "name": "_threshold",
+                "type": "uint256"
             }
         ],
         "stateMutability": "nonpayable",
@@ -166,6 +171,32 @@ export const MULTISIG_ABI = [
         "type": "event"
     },
     {
+        "anonymous": false,
+        "inputs": [
+            {
+                "indexed": false,
+                "internalType": "uint256",
+                "name": "newThreshold",
+                "type": "uint256"
+            }
+        ],
+        "name": "ThresholdUpdated",
+        "type": "event"
+    },
+    {
+        "inputs": [
+            {
+                "internalType": "uint256",
+                "name": "_newThreshold",
+                "type": "uint256"
+            }
+        ],
+        "name": "updateThreshold",
+        "outputs": [],
+        "stateMutability": "nonpayable",
+        "type": "function"
+    },
+    {
         "stateMutability": "payable",
         "type": "receive"
     },
@@ -201,6 +232,19 @@ export const MULTISIG_ABI = [
                 "internalType": "address[]",
                 "name": "",
                 "type": "address[]"
+            }
+        ],
+        "stateMutability": "view",
+        "type": "function"
+    },
+    {
+        "inputs": [],
+        "name": "getThreshold",
+        "outputs": [
+            {
+                "internalType": "uint256",
+                "name": "",
+                "type": "uint256"
             }
         ],
         "stateMutability": "view",
@@ -315,6 +359,19 @@ export const MULTISIG_ABI = [
         "type": "function"
     },
     {
+        "inputs": [],
+        "name": "threshold",
+        "outputs": [
+            {
+                "internalType": "uint256",
+                "name": "",
+                "type": "uint256"
+            }
+        ],
+        "stateMutability": "view",
+        "type": "function"
+    },
+    {
         "inputs": [
             {
                 "internalType": "uint256",
@@ -359,4 +416,4 @@ export const MULTISIG_ABI = [
         "type": "function"
     }
 ];
-export const MULTISIG_ADDRESS = '0x1739539d32fF5eAfC089876626cfD2984150d91D';
+export const MULTISIG_ADDRESS = '0x35B10A7533B3ad58bdec0bcB41B77D2AE1D33244';

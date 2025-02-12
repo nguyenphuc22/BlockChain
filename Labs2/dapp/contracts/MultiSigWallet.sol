@@ -7,6 +7,7 @@ contract MultiSigWallet {
     event Approve(address indexed owner, uint indexed txId);
     event Revoke(address indexed owner, uint indexed txId);
     event Execute(uint indexed txId);
+    event ThresholdUpdated(uint newThreshold);
 
     struct Transaction {
         address to;
@@ -14,12 +15,13 @@ contract MultiSigWallet {
         bytes data;
         bool executed;
         uint numApprovals;
-        uint deadline; // Thêm deadline
+        uint deadline;
     }
 
     address[] public owners;
     mapping(address => bool) public isOwner;
     uint public required;
+    uint public threshold; // Threshold amount that requires multi-sig
 
     Transaction[] public transactions;
     mapping(uint => mapping(address => bool)) public approved;
@@ -49,9 +51,14 @@ contract MultiSigWallet {
         _;
     }
 
-    constructor(address[] memory _owners, uint _required) {
+    constructor(
+        address[] memory _owners,
+        uint _required,
+        uint _threshold // Amount in wei that requires multi-sig
+    ) {
         require(_owners.length > 0, "owners required");
         require(_required > 0 && _required <= _owners.length, "invalid required number of owners");
+        require(_threshold > 0, "threshold must be greater than 0");
 
         for (uint i = 0; i < _owners.length; i++) {
             address owner = _owners[i];
@@ -63,6 +70,7 @@ contract MultiSigWallet {
         }
 
         required = _required;
+        threshold = _threshold;
     }
 
     receive() external payable {
@@ -80,9 +88,14 @@ contract MultiSigWallet {
             value: _value,
             data: _data,
             executed: false,
-            numApprovals: 0,
+            numApprovals: _value < threshold ? required : 1, // If below threshold, auto-approve
             deadline: _deadline
         }));
+
+        // Auto-approve for the submitter if value is below threshold
+        if (_value < threshold) {
+            approved[transactions.length - 1][msg.sender] = true;
+        }
 
         emit Submit(transactions.length - 1);
     }
@@ -95,8 +108,12 @@ contract MultiSigWallet {
     notExecuted(_txId)
     validDeadline(_txId)
     {
+        Transaction storage transaction = transactions[_txId];
+        // Only allow approvals for transactions above threshold
+        require(transaction.value >= threshold, "approval not required for small amounts");
+
         approved[_txId][msg.sender] = true;
-        transactions[_txId].numApprovals += 1;
+        transaction.numApprovals += 1;
 
         emit Approve(msg.sender, _txId);
     }
@@ -107,8 +124,9 @@ contract MultiSigWallet {
     notExecuted(_txId)
     validDeadline(_txId)
     {
-        require(transactions[_txId].numApprovals >= required, "approvals < required");
         Transaction storage transaction = transactions[_txId];
+        uint requiredApprovals = transaction.value >= threshold ? required : 1;
+        require(transaction.numApprovals >= requiredApprovals, "approvals < required");
 
         transaction.executed = true;
 
@@ -126,11 +144,22 @@ contract MultiSigWallet {
     txExists(_txId)
     notExecuted(_txId)
     {
+        Transaction storage transaction = transactions[_txId];
+        // Only allow revokes for transactions above threshold
+        require(transaction.value >= threshold, "revoke not allowed for small amounts");
         require(approved[_txId][msg.sender], "tx not approved");
+
         approved[_txId][msg.sender] = false;
-        transactions[_txId].numApprovals -= 1;
+        transaction.numApprovals -= 1;
 
         emit Revoke(msg.sender, _txId);
+    }
+
+    function updateThreshold(uint _newThreshold) external {
+        require(msg.sender == owners[0], "only admin can update threshold"); // Assuming first owner is admin
+        require(_newThreshold > 0, "threshold must be greater than 0");
+        threshold = _newThreshold;
+        emit ThresholdUpdated(_newThreshold);
     }
 
     function getOwners() external view returns (address[] memory) {
@@ -162,5 +191,9 @@ contract MultiSigWallet {
             transaction.numApprovals,
             transaction.deadline
         );
+    }
+
+    function getThreshold() external view returns (uint) {
+        return threshold;
     }
 }
