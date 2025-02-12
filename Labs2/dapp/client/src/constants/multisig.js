@@ -140,6 +140,11 @@ export const MULTISIG_ABI = [
                 "internalType": "bytes",
                 "name": "_data",
                 "type": "bytes"
+            },
+            {
+                "internalType": "uint256",
+                "name": "_deadline",
+                "type": "uint256"
             }
         ],
         "name": "submit",
@@ -234,6 +239,11 @@ export const MULTISIG_ABI = [
             {
                 "internalType": "uint256",
                 "name": "numApprovals",
+                "type": "uint256"
+            },
+            {
+                "internalType": "uint256",
+                "name": "deadline",
                 "type": "uint256"
             }
         ],
@@ -338,10 +348,15 @@ export const MULTISIG_ABI = [
                 "internalType": "uint256",
                 "name": "numApprovals",
                 "type": "uint256"
+            },
+            {
+                "internalType": "uint256",
+                "name": "deadline",
+                "type": "uint256"
             }
         ],
         "stateMutability": "view",
         "type": "function"
     }
 ];
-export const MULTISIG_ADDRESS = '0xa08f3517Ee859b286bE99ea651724CB8BF04a31C';
+export const MULTISIG_ADDRESS = '0x1739539d32fF5eAfC089876626cfD2984150d91D';

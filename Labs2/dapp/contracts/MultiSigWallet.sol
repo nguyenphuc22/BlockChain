@@ -14,11 +14,12 @@ contract MultiSigWallet {
         bytes data;
         bool executed;
         uint numApprovals;
+        uint deadline; // Thêm deadline
     }
 
     address[] public owners;
     mapping(address => bool) public isOwner;
-    uint public required; // Số chữ ký cần thiết
+    uint public required;
 
     Transaction[] public transactions;
     mapping(uint => mapping(address => bool)) public approved;
@@ -43,6 +44,11 @@ contract MultiSigWallet {
         _;
     }
 
+    modifier validDeadline(uint _txId) {
+        require(block.timestamp <= transactions[_txId].deadline, "transaction expired");
+        _;
+    }
+
     constructor(address[] memory _owners, uint _required) {
         require(_owners.length > 0, "owners required");
         require(_required > 0 && _required <= _owners.length, "invalid required number of owners");
@@ -63,16 +69,19 @@ contract MultiSigWallet {
         emit Deposit(msg.sender, msg.value);
     }
 
-    function submit(address _to, uint _value, bytes calldata _data)
+    function submit(address _to, uint _value, bytes calldata _data, uint _deadline)
     external
     onlyOwner
     {
+        require(_deadline > block.timestamp, "deadline must be in future");
+
         transactions.push(Transaction({
             to: _to,
             value: _value,
             data: _data,
             executed: false,
-            numApprovals: 0
+            numApprovals: 0,
+            deadline: _deadline
         }));
 
         emit Submit(transactions.length - 1);
@@ -84,6 +93,7 @@ contract MultiSigWallet {
     txExists(_txId)
     notApproved(_txId)
     notExecuted(_txId)
+    validDeadline(_txId)
     {
         approved[_txId][msg.sender] = true;
         transactions[_txId].numApprovals += 1;
@@ -95,6 +105,7 @@ contract MultiSigWallet {
     external
     txExists(_txId)
     notExecuted(_txId)
+    validDeadline(_txId)
     {
         require(transactions[_txId].numApprovals >= required, "approvals < required");
         Transaction storage transaction = transactions[_txId];
@@ -138,7 +149,8 @@ contract MultiSigWallet {
         uint value,
         bytes memory data,
         bool executed,
-        uint numApprovals
+        uint numApprovals,
+        uint deadline
     )
     {
         Transaction storage transaction = transactions[_txId];
@@ -147,7 +159,8 @@ contract MultiSigWallet {
             transaction.value,
             transaction.data,
             transaction.executed,
-            transaction.numApprovals
+            transaction.numApprovals,
+            transaction.deadline
         );
     }
 }

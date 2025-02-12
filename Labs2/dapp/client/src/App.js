@@ -4,356 +4,11 @@ import { Button } from "./components/ui/button";
 import { Input } from "./components/ui/input";
 import { Badge } from "./components/ui/badge";
 import { Alert, AlertDescription } from "./components/ui/alert";
-import { Wallet, Send, Users, RefreshCcw, CheckCircle, XCircle } from 'lucide-react';
+import { Wallet, Send, Users, RefreshCcw, CheckCircle, XCircle, Clock } from 'lucide-react';
 import Web3 from 'web3';
+import { MULTISIG_ABI, MULTISIG_ADDRESS } from './constants/multisig';
 
-const MULTISIG_ABI = [
-  {
-    "inputs": [
-      {
-        "internalType": "uint256",
-        "name": "_txId",
-        "type": "uint256"
-      }
-    ],
-    "name": "approve",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "address[]",
-        "name": "_owners",
-        "type": "address[]"
-      },
-      {
-        "internalType": "uint256",
-        "name": "_required",
-        "type": "uint256"
-      }
-    ],
-    "stateMutability": "nonpayable",
-    "type": "constructor"
-  },
-  {
-    "anonymous": false,
-    "inputs": [
-      {
-        "indexed": true,
-        "internalType": "address",
-        "name": "owner",
-        "type": "address"
-      },
-      {
-        "indexed": true,
-        "internalType": "uint256",
-        "name": "txId",
-        "type": "uint256"
-      }
-    ],
-    "name": "Approve",
-    "type": "event"
-  },
-  {
-    "anonymous": false,
-    "inputs": [
-      {
-        "indexed": true,
-        "internalType": "address",
-        "name": "sender",
-        "type": "address"
-      },
-      {
-        "indexed": false,
-        "internalType": "uint256",
-        "name": "amount",
-        "type": "uint256"
-      }
-    ],
-    "name": "Deposit",
-    "type": "event"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "uint256",
-        "name": "_txId",
-        "type": "uint256"
-      }
-    ],
-    "name": "execute",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "anonymous": false,
-    "inputs": [
-      {
-        "indexed": true,
-        "internalType": "uint256",
-        "name": "txId",
-        "type": "uint256"
-      }
-    ],
-    "name": "Execute",
-    "type": "event"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "uint256",
-        "name": "_txId",
-        "type": "uint256"
-      }
-    ],
-    "name": "revoke",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "anonymous": false,
-    "inputs": [
-      {
-        "indexed": true,
-        "internalType": "address",
-        "name": "owner",
-        "type": "address"
-      },
-      {
-        "indexed": true,
-        "internalType": "uint256",
-        "name": "txId",
-        "type": "uint256"
-      }
-    ],
-    "name": "Revoke",
-    "type": "event"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "address",
-        "name": "_to",
-        "type": "address"
-      },
-      {
-        "internalType": "uint256",
-        "name": "_value",
-        "type": "uint256"
-      },
-      {
-        "internalType": "bytes",
-        "name": "_data",
-        "type": "bytes"
-      }
-    ],
-    "name": "submit",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "anonymous": false,
-    "inputs": [
-      {
-        "indexed": true,
-        "internalType": "uint256",
-        "name": "txId",
-        "type": "uint256"
-      }
-    ],
-    "name": "Submit",
-    "type": "event"
-  },
-  {
-    "stateMutability": "payable",
-    "type": "receive"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "uint256",
-        "name": "",
-        "type": "uint256"
-      },
-      {
-        "internalType": "address",
-        "name": "",
-        "type": "address"
-      }
-    ],
-    "name": "approved",
-    "outputs": [
-      {
-        "internalType": "bool",
-        "name": "",
-        "type": "bool"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [],
-    "name": "getOwners",
-    "outputs": [
-      {
-        "internalType": "address[]",
-        "name": "",
-        "type": "address[]"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "uint256",
-        "name": "_txId",
-        "type": "uint256"
-      }
-    ],
-    "name": "getTransaction",
-    "outputs": [
-      {
-        "internalType": "address",
-        "name": "to",
-        "type": "address"
-      },
-      {
-        "internalType": "uint256",
-        "name": "value",
-        "type": "uint256"
-      },
-      {
-        "internalType": "bytes",
-        "name": "data",
-        "type": "bytes"
-      },
-      {
-        "internalType": "bool",
-        "name": "executed",
-        "type": "bool"
-      },
-      {
-        "internalType": "uint256",
-        "name": "numApprovals",
-        "type": "uint256"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [],
-    "name": "getTransactionCount",
-    "outputs": [
-      {
-        "internalType": "uint256",
-        "name": "",
-        "type": "uint256"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "address",
-        "name": "",
-        "type": "address"
-      }
-    ],
-    "name": "isOwner",
-    "outputs": [
-      {
-        "internalType": "bool",
-        "name": "",
-        "type": "bool"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "uint256",
-        "name": "",
-        "type": "uint256"
-      }
-    ],
-    "name": "owners",
-    "outputs": [
-      {
-        "internalType": "address",
-        "name": "",
-        "type": "address"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [],
-    "name": "required",
-    "outputs": [
-      {
-        "internalType": "uint256",
-        "name": "",
-        "type": "uint256"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "uint256",
-        "name": "",
-        "type": "uint256"
-      }
-    ],
-    "name": "transactions",
-    "outputs": [
-      {
-        "internalType": "address",
-        "name": "to",
-        "type": "address"
-      },
-      {
-        "internalType": "uint256",
-        "name": "value",
-        "type": "uint256"
-      },
-      {
-        "internalType": "bytes",
-        "name": "data",
-        "type": "bytes"
-      },
-      {
-        "internalType": "bool",
-        "name": "executed",
-        "type": "bool"
-      },
-      {
-        "internalType": "uint256",
-        "name": "numApprovals",
-        "type": "uint256"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  }
-];
-const MULTISIG_ADDRESS = '0xa08f3517Ee859b286bE99ea651724CB8BF04a31C';
+const DEADLINE_DURATION = 2 * 60; // 2 minutes in seconds
 
 const App = () => {
   const [web3, setWeb3] = useState(null);
@@ -367,6 +22,8 @@ const App = () => {
     value: '',
     data: ''
   });
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState(null);
 
   useEffect(() => {
     const initWeb3 = async () => {
@@ -405,6 +62,50 @@ const App = () => {
     };
   }, []);
 
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setTransactions(prevTxs => [...prevTxs]); // Force re-render to update countdowns
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, []);
+
+  const handleSubmitTransaction = async (e) => {
+    e.preventDefault();
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      if (!web3.utils.isAddress(newTx.to)) {
+        throw new Error('Invalid recipient address');
+      }
+
+      const balance = await web3.eth.getBalance(MULTISIG_ADDRESS);
+      if (web3.utils.toWei(newTx.value, 'ether') > balance) {
+        throw new Error('Insufficient wallet balance');
+      }
+
+      // Set deadline to 5 minutes from now
+      const deadline = Math.floor(Date.now() / 1000) + (DEADLINE_DURATION);
+
+      await contract.methods
+          .submit(
+              newTx.to,
+              web3.utils.toWei(newTx.value, 'ether'),
+              newTx.data || '0x',
+              deadline
+          )
+          .send({ from: account });
+
+      setNewTx({ to: '', value: '', data: '' });
+      await loadTransactions(contract);
+    } catch (error) {
+      setError(error.message);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const handleAccountChange = async (accounts) => {
     setAccount(accounts[0]);
     if (contract) {
@@ -422,68 +123,164 @@ const App = () => {
     setOwners(ownersList);
   };
 
-  const loadTransactions = async (contractInstance) => {
-    const count = await contractInstance.methods.getTransactionCount().call();
-    const txs = [];
-    for (let i = 0; i < count; i++) {
-      const tx = await contractInstance.methods.getTransaction(i).call();
-      txs.push({ id: i, ...tx });
-    }
-    setTransactions(txs);
-    await loadWalletBalance(web3);
-  };
-
-  const handleSubmitTransaction = async (e) => {
-    e.preventDefault();
-    if (contract && account) {
-      try {
-        await contract.methods
-            .submit(newTx.to, web3.utils.toWei(newTx.value, 'ether'), newTx.data)
-            .send({ from: account });
-        await loadTransactions(contract);
-        setNewTx({ to: '', value: '', data: '' });
-      } catch (error) {
-        console.error('Error submitting transaction:', error);
-      }
-    }
-  };
-
   const handleApprove = async (txId) => {
-    if (contract && account) {
-      try {
-        await contract.methods.approve(txId).send({ from: account });
-        await loadTransactions(contract);
-      } catch (error) {
-        console.error('Error approving transaction:', error);
-      }
+    setIsLoading(true);
+    setError(null);
+    try {
+      await contract.methods.approve(txId).send({ from: account });
+      await loadTransactions(contract);
+    } catch (error) {
+      setError(error.message);
+    } finally {
+      setIsLoading(false);
     }
   };
 
   const handleExecute = async (txId) => {
-    if (contract && account) {
-      try {
-        await contract.methods.execute(txId).send({ from: account });
-        await loadTransactions(contract);
-      } catch (error) {
-        console.error('Error executing transaction:', error);
-      }
+    setIsLoading(true);
+    setError(null);
+    try {
+      await contract.methods.execute(txId).send({ from: account });
+      await loadTransactions(contract);
+    } catch (error) {
+      setError(error.message);
+    } finally {
+      setIsLoading(false);
     }
   };
 
   const handleRevoke = async (txId) => {
-    if (contract && account) {
-      try {
-        await contract.methods.revoke(txId).send({ from: account });
-        await loadTransactions(contract);
-      } catch (error) {
-        console.error('Error revoking approval:', error);
-      }
+    setIsLoading(true);
+    setError(null);
+    try {
+      await contract.methods.revoke(txId).send({ from: account });
+      await loadTransactions(contract);
+    } catch (error) {
+      setError(error.message);
+    } finally {
+      setIsLoading(false);
     }
+  };
+
+  const loadTransactions = async (contractInstance) => {
+    const count = await contractInstance.methods.getTransactionCount().call();
+    const txs = [];
+
+    for (let i = 0; i < count; i++) {
+      const tx = await contractInstance.methods.getTransaction(i).call();
+      txs.push({
+        id: i,
+        ...tx,
+        deadline: Number(tx.deadline) // Assuming deadline is returned from contract
+      });
+    }
+
+    setTransactions(txs);
+  };
+
+  const TransactionCard = ({ tx }) => {
+    const now = Math.floor(Date.now() / 1000);
+    const isExpired = tx.deadline && tx.deadline < now;
+    const canInteract = !tx.executed && !isExpired;
+
+    // Format time remaining
+    const formatTimeRemaining = () => {
+      if (!tx.deadline) return "No deadline";
+      const timeLeft = tx.deadline - now;
+      if (timeLeft <= 0) return "Expired";
+
+      const minutes = Math.floor(timeLeft / 60);
+      const seconds = timeLeft % 60;
+      return `${minutes}m ${seconds}s`;
+    };
+
+    return (
+        <Card key={tx.id} className="bg-gray-50">
+          <CardHeader className="p-4">
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-lg">Transaction #{tx.id}</CardTitle>
+              <div className="flex gap-2">
+                {tx.executed ? (
+                    <Badge variant="success" className="flex items-center gap-1">
+                      <CheckCircle className="h-4 w-4" />
+                      Executed
+                    </Badge>
+                ) : isExpired ? (
+                    <Badge variant="destructive" className="flex items-center gap-1">
+                      <XCircle className="h-4 w-4" />
+                      Expired
+                    </Badge>
+                ) : (
+                    <Badge variant="secondary" className="flex items-center gap-1">
+                      <Clock className="h-4 w-4" />
+                      {formatTimeRemaining()}
+                    </Badge>
+                )}
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent className="p-4 pt-0">
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <p className="text-sm text-gray-500">To Address</p>
+                <p className="font-mono text-sm truncate">{tx.to}</p>
+              </div>
+              <div>
+                <p className="text-sm text-gray-500">Value</p>
+                <p className="font-mono">{web3?.utils.fromWei(tx.value, 'ether')} ETH</p>
+              </div>
+            </div>
+            <div className="mt-4 grid grid-cols-2 gap-4">
+              <div>
+                <p className="text-sm text-gray-500">Approvals Status</p>
+                <div className="flex items-center gap-2">
+                  <p className="font-mono">{tx.numApprovals} / 2 signatures</p>
+                  <Badge variant={tx.numApprovals >= 2 ? "success" : "secondary"}>
+                    {tx.numApprovals >= 2 ? "Ready" : "Pending"}
+                  </Badge>
+                </div>
+              </div>
+            </div>
+          </CardContent>
+          {canInteract && (
+              <CardFooter className="p-4 flex gap-2">
+                <Button
+                    onClick={() => handleApprove(tx.id)}
+                    variant="outline"
+                    disabled={isLoading}
+                >
+                  {isLoading ? 'Approving...' : 'Approve'}
+                </Button>
+                <Button
+                    onClick={() => handleExecute(tx.id)}
+                    variant="default"
+                    disabled={isLoading || tx.numApprovals < 2}
+                >
+                  {isLoading ? 'Executing...' : 'Execute'}
+                </Button>
+                <Button
+                    onClick={() => handleRevoke(tx.id)}
+                    variant="destructive"
+                    disabled={isLoading}
+                >
+                  {isLoading ? 'Revoking...' : 'Revoke'}
+                </Button>
+              </CardFooter>
+          )}
+        </Card>
+    );
   };
 
   return (
       <div className="min-h-screen bg-gray-100 p-4">
         <div className="max-w-7xl mx-auto space-y-6">
+          {/* Error Alert */}
+          {error && (
+              <Alert variant="destructive">
+                <AlertDescription>{error}</AlertDescription>
+              </Alert>
+          )}
+
           {/* Header Section */}
           <Card>
             <CardHeader>
@@ -492,7 +289,7 @@ const App = () => {
                 MultiSig Wallet Dashboard
               </CardTitle>
               <CardDescription>
-                Current Account: {account}
+                Current Account: {account ? `${account.slice(0, 6)}...${account.slice(-4)}` : 'Not Connected'}
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -524,7 +321,10 @@ const App = () => {
             <CardContent>
               <div className="flex flex-wrap gap-2">
                 {owners.map((owner, index) => (
-                    <Badge key={index} variant={owner === account ? "default" : "secondary"}>
+                    <Badge
+                        key={index}
+                        variant={owner.toLowerCase() === account.toLowerCase() ? "default" : "secondary"}
+                    >
                       {owner.slice(0, 6)}...{owner.slice(-4)}
                     </Badge>
                 ))}
@@ -547,15 +347,18 @@ const App = () => {
                       type="text"
                       value={newTx.to}
                       onChange={(e) => setNewTx({ ...newTx, to: e.target.value })}
-                      placeholder="To Address"
+                      placeholder="To Address (0x...)"
+                      disabled={isLoading}
                   />
                 </div>
                 <div className="space-y-2">
                   <Input
-                      type="text"
+                      type="number"
+                      step="0.000000000000000001"
                       value={newTx.value}
                       onChange={(e) => setNewTx({ ...newTx, value: e.target.value })}
                       placeholder="Value (ETH)"
+                      disabled={isLoading}
                   />
                 </div>
                 <div className="space-y-2">
@@ -563,11 +366,16 @@ const App = () => {
                       type="text"
                       value={newTx.data}
                       onChange={(e) => setNewTx({ ...newTx, data: e.target.value })}
-                      placeholder="Data (hex)"
+                      placeholder="Data (hex) - Optional"
+                      disabled={isLoading}
                   />
                 </div>
-                <Button type="submit" className="w-full">
-                  Submit Transaction
+                <Button
+                    type="submit"
+                    className="w-full"
+                    disabled={isLoading}
+                >
+                  {isLoading ? 'Submitting...' : 'Submit Transaction'}
                 </Button>
               </form>
             </CardContent>
@@ -583,55 +391,15 @@ const App = () => {
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
-                {transactions.map((tx) => (
-                    <Card key={tx.id} className="bg-gray-50">
-                      <CardHeader className="p-4">
-                        <div className="flex items-center justify-between">
-                          <CardTitle className="text-lg">Transaction #{tx.id}</CardTitle>
-                          {tx.executed ? (
-                              <Badge variant="success" className="flex items-center gap-1">
-                                <CheckCircle className="h-4 w-4" />
-                                Executed
-                              </Badge>
-                          ) : (
-                              <Badge variant="secondary" className="flex items-center gap-1">
-                                <XCircle className="h-4 w-4" />
-                                Pending
-                              </Badge>
-                          )}
-                        </div>
-                      </CardHeader>
-                      <CardContent className="p-4 pt-0">
-                        <div className="grid grid-cols-2 gap-4">
-                          <div>
-                            <p className="text-sm text-gray-500">To Address</p>
-                            <p className="font-mono">{tx.to}</p>
-                          </div>
-                          <div>
-                            <p className="text-sm text-gray-500">Value</p>
-                            <p className="font-mono">{web3?.utils.fromWei(tx.value, 'ether')} ETH</p>
-                          </div>
-                        </div>
-                        <div className="mt-4">
-                          <p className="text-sm text-gray-500">Approvals</p>
-                          <p className="font-mono">{tx.numApprovals} signatures</p>
-                        </div>
-                      </CardContent>
-                      {!tx.executed && (
-                          <CardFooter className="p-4 flex gap-2">
-                            <Button onClick={() => handleApprove(tx.id)} variant="outline">
-                              Approve
-                            </Button>
-                            <Button onClick={() => handleExecute(tx.id)} variant="default">
-                              Execute
-                            </Button>
-                            <Button onClick={() => handleRevoke(tx.id)} variant="destructive">
-                              Revoke
-                            </Button>
-                          </CardFooter>
-                      )}
-                    </Card>
-                ))}
+                {transactions.length === 0 ? (
+                    <div className="text-center py-8 text-gray-500">
+                      No transactions found
+                    </div>
+                ) : (
+                    transactions.map((tx) => (
+                        <TransactionCard key={tx.id} tx={tx} />
+                    ))
+                )}
               </div>
             </CardContent>
           </Card>
