@@ -362,11 +362,6 @@ const App = () => {
                 </p>
               </div>
 
-              <div>
-                <p className="text-sm font-medium text-gray-500">Deadline</p>
-                <p className="text-sm">{formatTimeRemaining()}</p>
-              </div>
-
               {tx.data && tx.data !== '0x' && (
                   <div className="col-span-2">
                     <p className="text-sm font-medium text-gray-500">Transaction Data</p>
@@ -490,171 +485,73 @@ const App = () => {
             </CardContent>
           </Card>
 
-          {/* Threshold Settings Card */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Settings className="h-6 w-6" />
-                Threshold Settings
-              </CardTitle>
-              <CardDescription>
-                Transactions below {threshold} ETH are automatically approved
-              </CardDescription>
-            </CardHeader>
-            {isAdmin && (
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                      <AlertTriangle className="h-6 w-6" />
-                      Emergency Controls
-                    </CardTitle>
-                    <CardDescription>
-                      Advanced controls for emergency situations - Admin only
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-6">
-                      {/* Contract Pause Controls */}
-                      <div className="border rounded-lg p-4">
-                        <h3 className="text-lg font-medium mb-4">Contract Status Control</h3>
-                        <div className="flex items-center gap-4">
-                          <Button
-                              variant={isPaused ? "default" : "destructive"}
-                              onClick={isPaused ? handleUnpause : handlePause}
-                              className="flex items-center gap-2"
-                          >
-                            {isPaused ? (
-                                <>
-                                  <RefreshCcw className="h-4 w-4" />
-                                  Unpause Contract
-                                </>
-                            ) : (
-                                <>
-                                  <AlertOctagon className="h-4 w-4" />
-                                  Pause Contract
-                                </>
-                            )}
-                          </Button>
-                          <Badge variant={isPaused ? "destructive" : "success"}>
-                            {isPaused ? "Contract Paused" : "Contract Active"}
-                          </Badge>
-                        </div>
-                      </div>
-
-                      {/* Deadline Extension */}
-                      <div className="border rounded-lg p-4">
-                        <h3 className="text-lg font-medium mb-4">Extend Transaction Deadline</h3>
-                        <div className="space-y-4">
-                          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                            <Input
-                                type="number"
-                                placeholder="Transaction ID"
-                                value={extendTxId}
-                                onChange={(e) => setExtendTxId(e.target.value)}
-                            />
-                            <Input
-                                type="datetime-local"
-                                value={newDeadline}
-                                onChange={(e) => setNewDeadline(e.target.value)}
-                            />
-                            <Button
-                                onClick={() => handleExtendDeadline(extendTxId, Math.floor(new Date(newDeadline).getTime() / 1000))}
-                                className="flex items-center gap-2"
-                            >
-                              <Clock className="h-4 w-4" />
-                              Extend Deadline
-                            </Button>
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Transaction Cancellation */}
-                      <div className="border rounded-lg p-4">
-                        <h3 className="text-lg font-medium mb-4">Cancel Transaction</h3>
-                        <div className="flex items-center gap-4">
+          {isAdmin && (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <AlertTriangle className="h-6 w-6" />
+                    Emergency Controls
+                  </CardTitle>
+                  <CardDescription>
+                    Advanced controls for emergency situations - Admin only
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-6">
+                    {/* Deadline Extension */}
+                    <div className="border rounded-lg p-4">
+                      <h3 className="text-lg font-medium mb-4">Extend Transaction Deadline</h3>
+                      <div className="space-y-4">
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                           <Input
                               type="number"
-                              placeholder="Transaction ID to cancel"
-                              value={cancelTxId}
-                              onChange={(e) => setCancelTxId(e.target.value)}
+                              placeholder="Transaction ID"
+                              value={extendTxId}
+                              onChange={(e) => setExtendTxId(e.target.value)}
                           />
-                          <Button
-                              variant="destructive"
-                              onClick={() => handleCancel(cancelTxId)}
-                              className="flex items-center gap-2"
-                          >
-                            <XCircle className="h-4 w-4" />
-                            Cancel Transaction
-                          </Button>
-                        </div>
-                      </div>
-
-                      {/* Owner Management */}
-                      <div className="border rounded-lg p-4">
-                        <h3 className="text-lg font-medium mb-4">Owner Management</h3>
-                        <div className="space-y-4">
-                          <div className="flex items-center gap-4">
-                            <Input
-                                type="text"
-                                placeholder="New owner address"
-                                value={newOwnerAddress}
-                                onChange={(e) => setNewOwnerAddress(e.target.value)}
-                            />
-                            <Button
-                                onClick={() => handleAddOwner(newOwnerAddress)}
-                                className="flex items-center gap-2"
-                            >
-                              <UserPlus className="h-4 w-4" />
-                              Add Owner
-                            </Button>
-                          </div>
-                          <div className="flex items-center gap-4">
-                            <Input
-                                type="text"
-                                placeholder="Owner address to remove"
-                                value={removeOwnerAddress}
-                                onChange={(e) => setRemoveOwnerAddress(e.target.value)}
-                            />
-                            <Button
-                                variant="destructive"
-                                onClick={() => handleRemoveOwner(removeOwnerAddress)}
-                                className="flex items-center gap-2"
-                            >
-                              <UserMinus className="h-4 w-4" />
-                              Remove Owner
-                            </Button>
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Threshold Update */}
-                      <div className="border rounded-lg p-4">
-                        <h3 className="text-lg font-medium mb-4">Update Threshold</h3>
-                        <div className="flex items-center gap-4">
                           <Input
-                              type="number"
-                              step="0.000000000000000001"
-                              value={newThreshold}
-                              onChange={(e) => setNewThreshold(e.target.value)}
-                              placeholder="New threshold value (ETH)"
+                              type="datetime-local"
+                              value={newDeadline}
+                              onChange={(e) => setNewDeadline(e.target.value)}
                           />
                           <Button
-                              onClick={handleUpdateThreshold}
+                              onClick={() => handleExtendDeadline(extendTxId, Math.floor(new Date(newDeadline).getTime() / 1000))}
                               className="flex items-center gap-2"
                           >
-                            <Settings className="h-4 w-4" />
-                            Update Threshold
+                            <Clock className="h-4 w-4" />
+                            Extend Deadline
                           </Button>
                         </div>
-                        <p className="text-sm text-gray-500 mt-2">
-                          Current threshold: {threshold} ETH
-                        </p>
                       </div>
                     </div>
-                  </CardContent>
-                </Card>
-            )}
-          </Card>
+
+                    {/* Threshold Update */}
+                    <div className="border rounded-lg p-4">
+                      <h3 className="text-lg font-medium mb-4">Update Threshold</h3>
+                      <div className="flex items-center gap-4">
+                        <Input
+                            type="number"
+                            step="0.000000000000000001"
+                            value={newThreshold}
+                            onChange={(e) => setNewThreshold(e.target.value)}
+                            placeholder="New threshold value (ETH)"
+                        />
+                        <Button
+                            onClick={handleUpdateThreshold}
+                            className="flex items-center gap-2"
+                        >
+                          <Settings className="h-4 w-4" />
+                          Update Threshold
+                        </Button>
+                      </div>
+                      <p className="text-sm text-gray-500 mt-2">
+                        Current threshold: {threshold} ETH
+                      </p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+          )}
 
           {/* New Transaction Section */}
           <Card>
