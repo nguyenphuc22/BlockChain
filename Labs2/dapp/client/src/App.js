@@ -67,7 +67,7 @@ const App = () => {
 
           // Load threshold
           const currentThreshold = await contractInstance.methods.getThreshold().call();
-          setThreshold(web3Instance.utils.fromWei(currentThreshold, 'ether'));
+          setThreshold(currentThreshold.toString());
 
           // Load required signatures
           const requiredSignatures = await contractInstance.methods.required().call();

@@ -175,221 +175,155 @@ Trong khi BIP70 đang dần được thay thế bởi các giải pháp đơn gi
 Tôi sẽ thêm phần "Kịch bản sử dụng" vào README.md sau phần báo cáo BIP70 và MultiSign. Đây là nội dung bổ sung:
 
 
-## Phần 4: Kịch bản Sử dụng và Triển khai
+Tôi sẽ viết lại 4 kịch bản phù hợp với source code hiện tại của MultiSigWallet.sol. Tôi sẽ tập trung vào các tính năng thực tế mà smart contract hỗ trợ:
 
-### 4.1. Kịch bản 1: Quản lý Quỹ Đầu tư Chung
+# Kịch bản Sử dụng và Triển khai Smart Contract MultiSigWallet
 
-#### Mô tả
-- Đối tượng: Nhóm 3 nhà đầu tư
-- Mục đích: Quản lý quỹ đầu tư chung
-- Yêu cầu: Minh bạch, an toàn, linh hoạt
+## 4.1. Kịch bản: Quản lý Chi tiêu Thông minh cho Con cái
 
-#### Thiết lập
+### Bối cảnh và Mục tiêu
+Trong kỷ nguyên số, việc giáo dục tài chính cho thế hệ trẻ đòi hỏi những phương pháp sáng tạo và hiệu quả. Smart contract MultiSigWallet mang đến giải pháp tối ưu, cho phép cha mẹ xây dựng nền tảng tài chính vững chắc cho con cái thông qua việc kết hợp tự do và kiểm soát một cách cân bằng.
+
+### Cấu trúc Tham gia
 ```javascript
-Cấu hình ban đầu:
-- Owners: 3 địa chỉ ví của các nhà đầu tư
-- Required: 2 (yêu cầu 2/3 chữ ký)
-- Threshold: 0.5 ETH (ngưỡng tự động)
+const owners = [
+    "0xp01...", // Ví của Bố - Quyền quản trị
+    "0xp02...", // Ví của Mẹ - Quyền quản trị  
+    "0xp03..."  // Ví của Con - Quyền thực hiện giao dịch
+];
+const required = 2;  // Cần 2/3 chữ ký
+const threshold = web3.utils.toWei("0.05", "ether"); // Ngưỡng 0.05 ETH
 ```
 
-#### Quy trình hoạt động
-1. Nạp tiền vào quỹ:
-   - Mỗi nhà đầu tư chuyển ETH vào địa chỉ contract
-   - Kiểm tra số dư qua dashboard
+### Quy trình Hoạt động
 
-2. Quản lý đầu tư:
-   - Giao dịch < 0.5 ETH: Tự động thực hiện
-   - Giao dịch > 0.5 ETH:
-      * Tạo đề xuất giao dịch
-      * Thu thập 2/3 chữ ký
-      * Thực thi sau khi đủ chữ ký
+#### 1. Quản lý Chi tiêu Nhỏ (< 0.05 ETH)
+- Con được tự do thực hiện giao dịch nhỏ
+- Giao dịch tự động được thực thi và ghi nhận
+- Phụ huynh theo dõi qua hệ thống thông báo
 
-3. Giám sát:
-   - Theo dõi lịch sử giao dịch
-   - Kiểm tra trạng thái phê duyệt
-   - Xem số dư real-time
+#### 2. Kiểm soát Chi tiêu Lớn (≥ 0.05 ETH)
+- Con tạo yêu cầu với thông tin chi tiết
+- Thời hạn xem xét 2 phút
+- Cần phê duyệt từ ít nhất một phụ huynh
+- Có thể điều chỉnh thời hạn khi cần
 
-### 4.2. Kịch bản 2: Quản lý Ngân sách Dự án
+#### 3. Công cụ Giám sát
+- Dashboard theo dõi chi tiêu thời gian thực
+- Báo cáo định kỳ về hành vi tài chính
+- Đề xuất điều chỉnh ngưỡng chi tiêu
+- Đánh giá mức độ trưởng thành tài chính
 
-#### Mô tả
-- Đối tượng: Team 3 người (PM, Tech Lead, Finance Officer)
-- Mục đích: Quản lý chi tiêu dự án
-- Đặc điểm: PM có quyền admin
+## 4.2. Kịch bản: Quản lý Quỹ Đầu tư Crypto Chuyên nghiệp
 
-#### Thiết lập
+### Bối cảnh và Mục tiêu
+Trong thị trường crypto biến động nhanh, các nhà đầu tư chuyên nghiệp cần một hệ thống quản lý danh mục đầu tư an toàn và linh hoạt. MultiSigWallet cung cấp cơ chế kiểm soát đa lớp để bảo vệ tài sản và tối ưu hóa cơ hội đầu tư.
+
+### Cấu trúc Tham gia
 ```javascript
-Cấu hình:
-- Owners: [PM, Tech Lead, Finance Officer]
-- Required: 2 chữ ký
-- Threshold: 0.3 ETH
+const owners = [
+    "0xf01...", // Quản lý Danh mục
+    "0xf02...", // Chuyên gia Phân tích
+    "0xf03...", // Giám đốc Rủi ro
+    "0xf04...", // Người thực thi Giao dịch
+    "0xf05..."  // Kiểm soát viên
+];
+const required = 3;  // Yêu cầu 3/5 chữ ký
+const threshold = web3.utils.toWei("5", "ether"); // Ngưỡng 5 ETH
 ```
 
-#### Quy trình quản lý
-1. Chi tiêu nhỏ (< 0.3 ETH):
-   - Tự động phê duyệt
-   - Ghi log chi tiết
+### Quy trình Hoạt động
 
-2. Chi tiêu lớn (> 0.3 ETH):
-   - Member tạo yêu cầu
-   - PM + 1 thành viên phê duyệt
-   - Thực thi trong deadline 2 phút
+#### 1. Giao dịch Chiến thuật (< 5 ETH)
+- Thực hiện nhanh để nắm bắt cơ hội thị trường
+- Người thực thi có quyền quyết định
+- Báo cáo tự động qua hệ thống
 
-3. Quyền Admin (PM):
-   - Thêm/xóa thành viên
-   - Điều chỉnh ngưỡng
-   - Pause contract khi cần
+#### 2. Giao dịch Chiến lược (≥ 5 ETH)
+- Yêu cầu phân tích kỹ lưỡng
+- Thu thập 3/5 chữ ký xác nhận
+- Thời hạn phê duyệt 5 phút
+- Có thể rút phê duyệt nếu thị trường thay đổi
 
-### 4.3. Kịch bản 3: Quản lý Tài sản Gia đình
+#### 3. Hệ thống Giám sát
+- Theo dõi hiệu suất danh mục
+- Cảnh báo rủi ro tự động
+- Phân tích xu hướng thị trường
+- Báo cáo tuân thủ định kỳ
 
-#### Mô tả
-- Đối tượng: Gia đình 3 thành viên
-- Mục đích: Quản lý tài sản chung
-- Đặc điểm: Phân quyền theo vai trò
+## 4.3. Kịch bản: Quản lý Quỷ Mở (DAO)
 
-#### Thiết lập
+### Bối cảnh và Mục tiêu
+Các dự án DAO cần một hệ thống quản lý tài chính minh bạch và dân chủ. MultiSigWallet cho phép cộng đồng tham gia vào quá trình ra quyết định tài chính một cách có tổ chức.
+
+### Cấu trúc Tham gia
 ```javascript
-Cấu hình:
-- Owners: [Cha (Admin), Mẹ, Con]
-- Required: 2 chữ ký
-- Threshold: 0.1 ETH
+const owners = [
+    "0xd01...", // Đại diện Cộng đồng
+    "0xd02...", // Chuyên gia Kỹ thuật
+    "0xd03...", // Quản lý Marketing
+    "0xd04...", // Điều phối viên
+    "0xd05...", // Kiểm toán viên
+    "0xd06...", // Cố vấn Pháp lý
+    "0xd07..."  // Đại diện Nhà đầu tư
+];
+const required = 4;  // Yêu cầu 4/7 chữ ký
+const threshold = web3.utils.toWei("10", "ether"); // Ngưỡng 10 ETH
 ```
 
-#### Quy trình sử dụng
-1. Chi tiêu hàng ngày (< 0.1 ETH):
-   - Bất kỳ ai cũng có thể tạo
-   - Tự động phê duyệt
-   - Tracking chi tiêu
+### Quy trình Hoạt động
 
-2. Chi tiêu lớn (> 0.1 ETH):
-   - Con tạo yêu cầu
-   - Cần phê duyệt của cha mẹ
-   - Có thể gia hạn deadline
+#### 1. Chi tiêu Vận hành (< 10 ETH)
+- Tự động phê duyệt cho hoạt động thường xuyên
+- Ghi nhận đầy đủ trên blockchain
+- Báo cáo công khai cho cộng đồng
 
-3. Quản lý:
-   - Cha có quyền hủy giao dịch
-   - Theo dõi lịch sử chi tiêu
-   - Điều chỉnh hạn mức
+#### 2. Đầu tư Chiến lược (≥ 10 ETH)
+- Đề xuất chi tiết được công bố công khai
+- Thu thập ý kiến cộng đồng
+- Yêu cầu 4/7 chữ ký từ hội đồng
+- Thời hạn thảo luận 48 giờ
 
-### 4.4. Kịch bản 4: Quản lý Quỹ DAO
+#### 3. Cơ chế Minh bạch
+- Platform theo dõi ngân sách thời gian thực
+- Công bố báo cáo tài chính định kỳ
+- Hệ thống bỏ phiếu cho quyết định lớn
+- Đánh giá hiệu quả sử dụng ngân sách
 
-#### Mô tả
-- Đối tượng: DAO với 3 thành viên hội đồng
-- Mục đích: Quản lý quỹ phát triển
-- Yêu cầu: Minh bạch tối đa
+## 4.4. Kịch bản: Quản lý Quỹ Từ thiện Blockchain
 
-#### Thiết lập
+### Bối cảnh và Mục tiêu
+Các tổ chức từ thiện cần đảm bảo tính minh bạch và hiệu quả trong việc sử dụng nguồn quỹ. MultiSigWallet cung cấp nền tảng để quản lý và phân phối viện trợ một cách công bằng và có trách nhiệm.
+
+### Cấu trúc Tham gia
 ```javascript
-Cấu hình:
-- Owners: 3 council members
-- Required: 2/3 chữ ký
-- Threshold: 1.0 ETH
+const owners = [
+    "0xc01...", // Giám đốc Điều hành
+    "0xc02...", // Quản lý Dự án
+    "0xc03...", // Đại diện Nhà tài trợ
+    "0xc04...", // Chuyên gia Đánh giá
+    "0xc05...", // Điều phối viên Địa phương
+    "0xc06..."  // Kiểm toán Độc lập
+];
+const required = 3;  // Yêu cầu 3/6 chữ ký
+const threshold = web3.utils.toWei("1", "ether"); // Ngưỡng 1 ETH
 ```
 
-#### Quy trình vận hành
-1. Giao dịch thường (< 1 ETH):
-   - Tự động thực hiện
-   - Log đầy đủ thông tin
+### Quy trình Hoạt động
 
-2. Giao dịch lớn (> 1 ETH):
-   - Tạo proposal
-   - Thu thập 2/3 chữ ký
-   - Tracking quá trình phê duyệt
+#### 1. Viện trợ Khẩn cấp (< 1 ETH)
+- Phê duyệt nhanh cho trường hợp cấp thiết
+- Báo cáo chi tiết sau thực hiện
+- Đánh giá tác động nhanh
 
-3. Quản trị:
-   - Điều chỉnh threshold
-   - Thêm/xóa council member
-   - Emergency pause
+#### 2. Dự án Phát triển (≥ 1 ETH)
+- Đề xuất dự án chi tiết
+- Thu thập đánh giá từ các bên
+- Yêu cầu 3/6 chữ ký phê duyệt
+- Theo dõi tiến độ thực hiện
 
-### 4.5. Hướng dẫn Triển khai
-
-1. Chuẩn bị:
-   - Cài đặt MetaMask
-   - Kết nối testnet
-   - Chuẩn bị ETH test
-
-2. Deploy Contract:
-   ```bash
-   # Cấu hình owners
-   _owners = [
-       "0xf9340cf908f039Db5F588b79286dc62D84ba5098",
-       "0xE1B37097C7b93DE17fcFc988f9789e89A6cE836e",
-       "0x394409D8630eC3bDA1A661b01424220Da42cdfaA"
-   ];
-   
-   # Cấu hình parameters
-   _required = 2;
-   _threshold = 1.0;
-   ```
-
-3. Khởi tạo Frontend:
-   ```bash
-   # Cài đặt dependencies
-   npm install
-   
-   # Cập nhật địa chỉ contract
-   MULTISIG_ADDRESS=<contract_address>
-   
-   # Chạy ứng dụng
-   npm start
-   ```
-
-4. Sử dụng:
-   - Connect wallet
-   - Nạp ETH vào contract
-   - Tạo và quản lý giao dịch
-   - Theo dõi trên dashboard
-
-### 4.6. Các Tính năng Chính
-
-1. Quản lý Giao dịch:
-   - Tạo giao dịch mới
-   - Phê duyệt/Từ chối
-   - Theo dõi trạng thái
-   - Auto-approve với small tx
-
-2. Quản trị:
-   - Thêm/xóa owners
-   - Điều chỉnh threshold
-   - Quản lý deadline
-   - Emergency controls
-
-3. Giám sát:
-   - Real-time balance
-   - Transaction history
-   - Approval tracking
-   - Deadline monitoring
-
-4. Bảo mật:
-   - Multi-signature
-   - Threshold control
-   - Time locks
-   - Emergency pause
-
-### 4.7. Best Practices
-
-1. Bảo mật:
-   - Backup private keys
-   - Verify transaction info
-   - Check gas settings
-   - Monitor balances
-
-2. Quản lý:
-   - Set appropriate thresholds
-   - Regular monitoring
-   - Clear documentation
-   - Training for members
-
-3. Quy trình:
-   - Define clear procedures
-   - Regular audits
-   - Emergency protocols
-   - Update policies
-
-4. Kỹ thuật:
-   - Test thoroughly
-   - Monitor gas prices
-   - Regular updates
-   - Backup solutions
-```
-
-Phần này cung cấp hướng dẫn chi tiết cho việc triển khai và sử dụng MultiSig Wallet trong các kịch bản khác nhau, giúp người dùng dễ dàng áp dụng vào thực tế. Mỗi kịch bản đều có hướng dẫn cụ thể về cấu hình và quy trình vận hành.
+#### 3. Hệ thống Trách nhiệm
+- Theo dõi nguồn viện trợ
+- Đánh giá tác động xã hội
+- Báo cáo minh bạch cho nhà tài trợ
+- Phân tích hiệu quả sử dụng quỹ

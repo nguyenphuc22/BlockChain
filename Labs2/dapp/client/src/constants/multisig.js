@@ -491,4 +491,4 @@ export const MULTISIG_ABI = [
         "type": "function"
     }
 ];
-export const MULTISIG_ADDRESS = '0x292965215e8cCA44654aDb671dbd2Be2161656C9';
+export const MULTISIG_ADDRESS = '0x6D2404Fa5Bb5df921ab07E088bBd7EDbb47d22dA';
