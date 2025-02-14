@@ -161,3 +161,137 @@ Muốn chuyển 0.6 ETH từ A đến B qua MultiSig:
 ```
 
 Đây giống như một "phòng giao dịch" nơi tiền được giữ an toàn và chỉ được chuyển đi khi đủ số người ký duyệt, thay vì chuyển trực tiếp giữa hai bên.
+
+## Kịch bản Sử dụng Multisig Wallet
+
+### 1. Quản lý Quỹ Đầu tư Tập thể
+
+#### Bối cảnh
+Một nhóm 5 nhà đầu tư muốn cùng quản lý quỹ đầu tư chung với cơ chế bảo vệ đa lớp.
+
+#### Thiết lập Ban đầu
+```javascript
+{
+  owners: [investorA (admin), investorB, investorC, investorD, investorE],
+  required: 3,  // Yêu cầu 3/5 chữ ký
+  threshold: 2 ETH  // Giao dịch trên 2 ETH cần phê duyệt đa chữ ký
+}
+```
+
+#### Quy trình Hoạt động Chi tiết
+
+1. Giao dịch Thông thường
+   - Giao dịch dưới 2 ETH được tự động phê duyệt mà không cần thu thập chữ ký
+   - Hệ thống tự động đánh dấu "auto-approved" và sẵn sàng thực thi
+   - Dashboard hiển thị rõ trạng thái "Below Threshold - Auto Approved"
+
+2. Giao dịch Lớn (> 2 ETH)
+   - Người tạo giao dịch submit với deadline 2 phút
+   - Cần thu thập 3/5 chữ ký trong thời hạn
+   - Admin có thể gia hạn deadline nếu cần thêm thời gian
+   - Giao dịch tự động hết hạn nếu không đủ chữ ký
+
+3. Quản lý Khẩn cấp
+   - Admin có quyền pause toàn bộ contract trong trường hợp khẩn cấp
+   - Có thể hủy các giao dịch đang chờ khi phát hiện rủi ro
+   - Điều chỉnh ngưỡng threshold khi thị trường biến động
+
+### 2. Quản lý Chi tiêu Doanh nghiệp
+
+#### Bối cảnh
+Startup 10 người với 3 người trong ban điều hành cần quản lý chi tiêu minh bạch.
+
+#### Thiết lập
+```javascript
+{
+  owners: [CEO (admin), CFO, CTO],
+  required: 2,  // Cần 2/3 chữ ký
+  threshold: 1 ETH
+}
+```
+
+#### Quy trình Chi tiết
+
+1. Chi tiêu Vận hành
+   - Chi tiêu dưới 1 ETH được auto-approve
+   - Dashboard hiển thị rõ lịch sử chi tiêu theo thời gian thực
+   - Các thành viên có thể theo dõi số dư và giao dịch
+
+2. Chi tiêu Lớn
+   - Submit với thời hạn 2 phút
+   - Thu thập 2/3 chữ ký từ ban điều hành
+   - Admin có thể extend deadline khi cần thảo luận thêm
+   - Giao dịch expired sẽ cần tạo lại
+
+3. Quyền Admin
+   - CEO có quyền pause contract khi phát hiện bất thường
+   - Thêm/xóa thành viên ban điều hành khi có thay đổi nhân sự
+   - Hủy các giao dịch đáng ngờ
+   - Điều chỉnh threshold theo chính sách mới
+
+### 3. Quản lý Tài chính Dự án Phi lợi nhuận
+
+#### Bối cảnh
+Tổ chức phi lợi nhuận với 3 thành viên hội đồng quản trị cần quản lý minh bạch nguồn tài trợ.
+
+#### Thiết lập
+```javascript
+{
+  owners: [Chairman (admin), Treasurer, Secretary],
+  required: 2, // 2/3 chữ ký
+  threshold: 0.5 ETH 
+}
+```
+
+#### Quy trình Vận hành
+
+1. Chi tiêu Nhỏ
+   - Dưới 0.5 ETH tự động được phê duyệt
+   - Log đầy đủ thông tin người tạo, mục đích
+   - Dashboard hiển thị chi tiết từng khoản chi
+
+2. Chi tiêu Lớn
+   - Submit kèm thông tin dự án và mục đích
+   - Thu thập 2/3 chữ ký trong 2 phút
+   - Admin có thể gia hạn nếu cần thẩm định kỹ
+   - Revoke chữ ký nếu phát hiện vấn đề
+
+3. Tính năng Đặc biệt
+   - Pause contract khi audit
+   - Cancel transaction khi phát hiện sai phạm
+   - Điều chỉnh threshold theo quy mô dự án
+   - Tracking đầy đủ lịch sử thay đổi
+
+### 4. Quản lý Quỹ Đầu tư Mạo hiểm
+
+#### Bối cảnh
+Quỹ đầu tư với 3 partner cần cơ chế quản lý an toàn và linh hoạt.
+
+#### Thiết lập
+```javascript
+{
+  owners: [Managing Partner (admin), Partner B, Partner C],
+  required: 2, // 2/3 chữ ký  
+  threshold: 5 ETH // Ngưỡng cao do tính chất quỹ đầu tư
+}
+```
+
+#### Quy trình Đầu tư
+
+1. Giao dịch Thông thường
+   - Dưới 5 ETH tự động phê duyệt
+   - Dashboard tracking theo thời gian thực
+   - Phân loại giao dịch theo dự án
+
+2. Giao dịch Đầu tư Lớn
+   - Submit với đầy đủ thông tin due diligence
+   - Thu thập 2/3 chữ ký trong 2 phút
+   - Gia hạn deadline nếu cần thẩm định thêm
+   - Auto expire nếu không đủ chữ ký
+
+3. Quản trị Rủi ro
+   - Admin pause trong trường hợp khẩn cấp
+   - Hủy giao dịch khi thị trường biến động
+   - Điều chỉnh threshold theo chiến lược đầu tư
+   - Add/remove partner khi cơ cấu thay đổi
+

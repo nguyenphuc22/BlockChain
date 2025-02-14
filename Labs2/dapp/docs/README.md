@@ -172,11 +172,6 @@ MultiSign:
 
 Trong khi BIP70 đang dần được thay thế bởi các giải pháp đơn giản hơn BIP21 (Chủ yếu dùng URI, thật ra là quay lại), MultiSign tiếp tục phát triển và được áp dụng rộng rãi trong các ứng dụng yêu cầu bảo mật cao và quản lý tài sản tập thể.
 
-Tôi sẽ thêm phần "Kịch bản sử dụng" vào README.md sau phần báo cáo BIP70 và MultiSign. Đây là nội dung bổ sung:
-
-
-Tôi sẽ viết lại 4 kịch bản phù hợp với source code hiện tại của MultiSigWallet.sol. Tôi sẽ tập trung vào các tính năng thực tế mà smart contract hỗ trợ:
-
 # Kịch bản Sử dụng và Triển khai Smart Contract MultiSigWallet
 
 ## 4.1. Kịch bản: Quản lý Chi tiêu Thông minh cho Con cái
